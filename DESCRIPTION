@@ -1,0 +1,24 @@
+Package: howbig
+Title: Empirical, Method-Aware Power Analysis for Differential Network Analysis
+Version: 0.0.0.9000
+Authors@R:
+    person("Margie", "Hannum", email = "margie.hannum@gmail.com",
+           role = c("aut", "cre"))
+Description: Sample-size and power calculations for differential network
+    analysis, grounded in a precomputed simulation grid across sample size,
+    feature count, perturbation type, and estimation method. Given a target
+    power (sensitivity at a false-discovery-rate target), howbig looks up or
+    interpolates the required sample size from the grid, and flags every
+    answer with how it was produced (in-grid, interpolated, or requiring
+    simulation). A network-native, method-aware analogue to 'pwr'.
+License: file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.1)
+Imports:
+    stats
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
