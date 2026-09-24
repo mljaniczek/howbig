@@ -10,3 +10,5 @@
 ^\.Rproj\.user$
 ^\.git$
 ^\.gitignore$
+^\.claude$
+^tests/testthat/_snaps$

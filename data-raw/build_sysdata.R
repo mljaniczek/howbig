@@ -57,8 +57,39 @@ attr(howbig_grid, "howbig_meta") <- list(
   built = as.character(Sys.Date())
 )
 
+# Data-generating family the grid was simulated under. The on-demand
+# simulator reads this so simulated answers describe the same networks as
+# grid answers. When the SF2- grid replaces this one, set m_pa = 2 here.
+howbig_family <- list(
+  topology     = "scale_free",
+  m_pa         = 1L,        # SF- = BA tree; SF2- = 2
+  p_block      = 25L,
+  wt_method    = "empirical",
+  scale_factor = 1.5,
+  diff_threshold = 0.01     # |Theta_g1 - Theta_g2| > this => true differential
+)
+
+# Empirical partial-correlation weight distribution (histogram: mids,
+# density) used to draw edge weights; from the DiNA simulation project.
+howbig_weights <- read.csv("data-raw/mxDist.csv")
+
+# Per-method runtime model for simulation pre-flight estimates:
+# log(seconds per fit) ~ log(p) + log(n), fit on the production timings.
+# InvCov is effectively instant, so it gets a flat floor.
+rt <- d[is.finite(d$runtime_sec) & d$runtime_sec > 0, ]
+howbig_runtime <- do.call(rbind, lapply(split(rt, rt$method), function(s) {
+  cf <- if (length(unique(s$p)) > 1 && length(unique(s$n)) > 1) {
+    coef(lm(log(runtime_sec) ~ log(p) + log(n), data = s))
+  } else {
+    c(log(stats::median(s$runtime_sec)), 0, 0)
+  }
+  data.frame(method = s$method[1], b0 = cf[[1]], b_logp = cf[[2]],
+             b_logn = cf[[3]], row.names = NULL)
+}))
+
 dir.create("R", showWarnings = FALSE)
-save(howbig_grid, file = "R/sysdata.rda", compress = "xz")
+save(howbig_grid, howbig_family, howbig_weights, howbig_runtime,
+     file = "R/sysdata.rda", compress = "xz")
 
 cat("Wrote R/sysdata.rda:", nrow(howbig_grid), "cells,",
     length(unique(howbig_grid$method)), "methods\n")

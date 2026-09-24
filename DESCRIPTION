@@ -18,7 +18,19 @@ RoxygenNote: 7.3.2
 Depends:
     R (>= 4.1)
 Imports:
+    igraph,
+    MASS,
+    parallel,
     stats
 Suggests:
+    JGL,
+    spikeyglass,
+    multiGGM,
+    iJRFNet,
     testthat (>= 3.0.0)
+Remotes:
+    patrickjdanaher/JGL-package,
+    mljaniczek/spikeyglass,
+    mljaniczek/multiGGMr,
+    petraf01/iJRF
 Config/testthat/edition: 3

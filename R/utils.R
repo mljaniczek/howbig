@@ -1,5 +1,7 @@
 # Internal utilities: input normalization and shared constants.
 
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 # The FDR target the shipped grid was scored at. In v0 this is the only
 # operating point available from the grid; other targets require the raw
 # fits (deferred to the simulation path).
