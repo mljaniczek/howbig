@@ -1,0 +1,14 @@
+^inspo_code$
+^results$
+^data-raw$
+^CLAUDE\.md$
+^NOTES_network_density\.md$
+^TODOS_FUTURE_SIMULATIONS\.md$
+^README\.md$
+^\.DS_Store$
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.git$
+^\.gitignore$
+^\.claude$
+^tests/testthat/_snaps$
