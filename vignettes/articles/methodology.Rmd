@@ -1,0 +1,185 @@
+---
+title: "Methodology"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(knitr.kable.NA = "—")
+library(howbig)
+```
+
+This article documents where howbig's numbers come from: the simulated
+networks, how each method is scored, how the grid is used, and how the answers
+were checked.
+
+## Simulated networks
+
+Each simulated design starts from two networks: group 1, and group 2, which
+equals group 1 plus a localized change.
+
+**Group 1** is built in four steps:
+
+1. **Blocks.** Features are split into blocks of 25 (designs with p < 50 use
+   two equal blocks). Each block is a Barabási-Albert preferential-attachment
+   graph.
+2. **Between-block edges.** Pairs in different blocks connect with probability
+   0.01 × 5 / B for B blocks, which keeps the expected number of between-block
+   edges roughly constant as p grows.
+3. **Edge weights.** Weights are drawn from an empirical, metabolomics-derived
+   distribution of partial correlations, excluding |weight| < 0.035.
+4. **Precision matrix.** Each off-diagonal entry is divided by 1.5 times its
+   row's absolute sum (Danaher et al. 2014), the diagonal is set to 1, and the
+   diagonal is boosted if needed to make the matrix positive definite.
+
+**Group 2** applies one of three perturbations:
+
+| `perturbation` | What changes | Setting in the source study |
+|---|---|---|
+| `"structural"` | All edges within block 1 are deleted | A |
+| `"magnitude"` | Off-diagonal precision entries in block 1 are scaled by 1.5; no edges appear or disappear | C |
+| `"both"` | Block 1 deleted **and** block 2 scaled by 1.5 | B |
+
+Scaling is applied after the precision matrix is built, so the row-sum
+normalization cannot cancel it.
+
+**Ground truth.** An edge is differential when the two groups' precision
+entries differ by more than 0.01, i.e. |Θ₁ − Θ₂| > 0.01. This definition
+counts strength changes as well as edges that appear or disappear.
+
+**Data.** Each group's samples are drawn from a zero-mean multivariate normal
+with that group's covariance (the inverse precision).
+
+### Differential edges are rare, and rarer as p grows
+
+Because the change is confined to one or two blocks, the share of feature
+pairs that are truly differential falls sharply with p. That is the main reason
+designs with many features need large samples. Computed with the package's own
+generator:
+
+```{r prevalence, echo = FALSE}
+set.seed(1)
+prev <- do.call(rbind, lapply(c(50, 100, 250, 500), function(p) {
+  g <- replicate(3, howbig:::.generate_gold(p, "structural")$delta,
+                 simplify = FALSE)
+  data.frame(p = p, pairs = length(g[[1]]),
+             differential = round(mean(vapply(g, sum, numeric(1)))),
+             share = sprintf("%.2f%%", 100 * mean(vapply(g, mean, numeric(1)))))
+}))
+knitr::kable(prev, col.names = c("Features (p)", "Feature pairs",
+                                 "Differential pairs (mean)", "Share differential"))
+```
+
+## Methods
+
+Each method runs with the same fixed configuration it had in the simulation
+study:
+
+| Method | Package | Configuration | Edge score for ranking |
+|---|---|---|---|
+| `JGL_BIC` | JGL | Fused penalty; λ₁ then λ₂ chosen by BIC over a data-adaptive 10-value grid | \|Θ̂₁ − Θ̂₂\| |
+| `JGL_BIC_GGL` | JGL | Group penalty; same tuning | \|Θ̂₁ − Θ̂₂\| |
+| `SSJGL` | spikeyglass | Fused spike-and-slab; 3-step v₀ ladder | \|Θ̂₁ − Θ̂₂\| |
+| `SSJGL_GGL` | spikeyglass | Group spike-and-slab; same ladder | \|Θ̂₁ − Θ̂₂\| |
+| `multiGGM` | multiGGM | SSVS; 2 chains × (5,000 burn-in + 1,000 saved) | \|Θ̂₁ − Θ̂₂\| masked to edges with posterior inclusion ≥ 0.05 |
+| `JRF` | iJRFNet | 1,000 trees, mtry = √(p − 1) | \|importance₁ − importance₂\| |
+| `InvCov` | (base R) | Inverse sample covariance (pseudoinverse when singular) | \|Θ̂₁ − Θ̂₂\| |
+
+## Scoring
+
+**FDR-controlled calls.** Power needs a set of edges each method *declares*
+differential at the FDR target:
+
+- **Frequentist methods** are compared to a **permutation null**. One
+  representative network pair is generated. For each of `n_perm` permutations,
+  fresh data are drawn, group labels are shuffled, and the method is refit.
+  The edge scores from all permutations are pooled into one null distribution.
+  Each observed edge score gets an empirical p-value against the pooled null,
+  and the Benjamini-Hochberg procedure is applied at the target.
+- **multiGGM** (Bayesian) uses its posterior probabilities directly. Edges are
+  ranked by their posterior probability of differing, and the largest top set
+  whose average (1 − probability) stays at or below the target is declared.
+
+From those calls:
+
+- **Sensitivity (power)** = true differential edges declared / all true
+  differential edges.
+- **Achieved FDR** = declared edges that are not truly differential / all
+  declared edges.
+- **AUPR**, a threshold-free secondary measure: area under the
+  precision-recall curve of the edge ranking.
+
+Each replicate draws a fresh network and data. The reported value is the mean
+over replicates, with the 10th-90th percentile band showing how much power
+varies between networks.
+
+## The grid
+
+The precomputed grid holds two one-dimensional sweeps (100 replicates per cell
+for most cells) that cross at one anchor:
+
+- **sample-size arm:** n = 250, 500, 1000, 2000, 5000 at p = 250;
+- **feature arm:** p = 50, 100, 200, 250, 300, 500 at n = 1000;
+- **perturbation:** structural, magnitude, and both at the anchor
+  (p = 250, n = 1000), plus one off-arm cell (p = 125, n = 100).
+
+```{r}
+head(howbig_coverage("JGL_BIC"))
+```
+
+Some cells lack a scored sensitivity (for example, JGL and SSJGL at p = 500,
+where permutation nulls were not computed); there howbig reports AUPR and
+suggests simulating. One cell (JRF at p = 250, n = 2000) has only 2
+replicates, and howbig flags it.
+
+## Interpolation
+
+Queries **on an arm**, between grid points, are interpolated with a monotone
+(Fritsch-Carlson) spline on log(n) or log(p). Interpolation never extrapolates
+past the ends of an arm, and never crosses between arms.
+
+That restriction is deliberate and was tested:
+
+| Check | Result |
+|---|---|
+| Leave-one-out along the feature arm (AUPR) | mean absolute error 0.007 |
+| Leave-one-out along the sample-size arm (AUPR) | 0.03 overall; JRF up to 0.20 (its curve bends sharply) |
+| Predicting the off-arm cell (p = 125, n = 100) by combining the two arms | errors around 0.20, consistently too optimistic |
+| Interpolated vs freshly simulated, p = 150, n = 1000, JGL_BIC | sensitivity 0.65 vs 0.65 (± 0.02) |
+
+So on-arm interpolation is trustworthy, while combining arms to predict
+off-arm designs is not; howbig simulates those instead.
+
+## On-demand simulation
+
+`simulate_power()` runs the pipeline above for any design, with the same
+network family as the shipped grid, so grid and simulated answers describe the
+same networks. It was checked by re-simulating grid cells:
+
+| Design | Grid | Simulated (20 replicates) |
+|---|---|---|
+| `InvCov`, p = 100, n = 1000 | 0.49 | 0.48 |
+| `JGL_BIC`, p = 100, n = 1000 | 0.70 | 0.68 (± 0.02) |
+
+Implementation notes:
+
+- **Reproducible.** Every replicate and permutation sets its own seed from
+  `seed`, so results are identical however many `cores` are used.
+- **Parallel-safe.** Workers are separate R processes rather than forks.
+  Forking after a multithreaded linear-algebra library (such as Apple
+  Accelerate) has started can crash the workers.
+- **Runtime estimates** come from a per-method regression of log fit time on
+  log(p) and log(n), fit to the production timings. It predicts within about
+  30%.
+
+## Source
+
+The simulation design, generators, and scoring are ported from the simulation
+study for the DiNA differential network analysis tutorial (manuscript in
+preparation). The shipped grid is the
+study's interim Barabási-Albert *tree* family (mean degree ~1.9); it will be
+replaced by the scale-free family (mean degree ~3.8), matching the
+networks of Danaher et al. (2014).
+
+Danaher, P., Wang, P., & Witten, D. M. (2014). The joint graphical lasso for
+inverse covariance estimation across multiple classes. *Journal of the Royal
+Statistical Society: Series B*, 76(2), 373-397.

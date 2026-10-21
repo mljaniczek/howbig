@@ -93,6 +93,11 @@ power_for <- function(p, n, method,
   res$aupr           <- vals$aupr_mean
   res$n_reps         <- vals$n_reps
 
+  if (is.finite(res$n_reps) && res$n_reps < 20) {
+    res$notes <- c(res$notes, sprintf(
+      "this grid cell rests on only %d replicates; treat it as rough.",
+      res$n_reps))
+  }
   # Metric hole: some cells (e.g. p = 500) have AUPR but no scored inference.
   if (!is.finite(res$sensitivity) && is.finite(res$aupr)) {
     res$notes <- c(res$notes, paste0(

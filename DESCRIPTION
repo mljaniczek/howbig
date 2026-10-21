@@ -6,12 +6,15 @@ Authors@R:
            role = c("aut", "cre"))
 Description: Sample-size and power calculations for differential network
     analysis, grounded in a precomputed simulation grid across sample size,
-    feature count, perturbation type, and estimation method. Given a target
-    power (sensitivity at a false-discovery-rate target), howbig looks up or
-    interpolates the required sample size from the grid, and flags every
-    answer with how it was produced (in-grid, interpolated, or requiring
-    simulation). A network-native, method-aware analogue to 'pwr'.
-License: file LICENSE
+    feature count, perturbation type, and estimation method. Power is the
+    sensitivity for truly differential edges at a false-discovery-rate
+    target, reported alongside the achieved false discovery rate. Answers
+    come from the grid where possible, by interpolation along its swept
+    axes, or by on-demand simulation, and every answer records how it was
+    produced. A network-native, method-aware analogue to 'pwr'.
+License: GPL (>= 3)
+URL: https://mljaniczek.github.io/howbig/, https://github.com/mljaniczek/howbig
+BugReports: https://github.com/mljaniczek/howbig/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
@@ -27,7 +30,10 @@ Suggests:
     spikeyglass,
     multiGGM,
     iJRFNet,
+    knitr,
+    rmarkdown,
     testthat (>= 3.0.0)
+VignetteBuilder: knitr
 Remotes:
     patrickjdanaher/JGL-package,
     mljaniczek/spikeyglass,

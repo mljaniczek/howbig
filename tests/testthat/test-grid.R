@@ -38,6 +38,9 @@ test_that("miscalibration and metric holes are surfaced", {
 
   hole <- power_for(500, 1000, "JGL_BIC")
   expect_true(is.na(hole$sensitivity) && is.finite(hole$aupr))
+
+  thin <- power_for(250, 2000, "JRF")   # only 2 replicates in the grid
+  expect_match(paste(thin$notes, collapse = " "), "only 2 replicates")
 })
 
 test_that("n_for inverts the sample-size arm monotonically", {

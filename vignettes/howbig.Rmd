@@ -1,0 +1,231 @@
+---
+title: "Get started with howbig"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Get started with howbig}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 4.5, dpi = 150, out.width = "100%")
+```
+
+```{r setup}
+library(howbig)
+```
+
+## The question
+
+Differential network analysis compares two groups (say, cases and controls)
+and asks which edges in a Gaussian graphical model differ between them. howbig
+answers the planning question that comes first: **how many samples do I need
+to find those edges?**
+
+### What "power" means here
+
+In a differential network, almost every possible edge is *not* differential.
+With 500 features there are about 125,000 feature pairs, and in the simulations
+behind howbig only around 50 of them differ. A method that calls nothing
+differential still has a false positive rate near zero, so FPR-based summaries
+say little.
+
+howbig defines **power as sensitivity**: the fraction of truly differential
+edges a method detects while controlling the false discovery rate (FDR) at a
+target, 5% by default. It always reports the FDR the method **actually
+achieved** next to it, because not every method controls FDR in every setting.
+
+## What you need to know
+
+| Input | Argument | Typical knowledge |
+|---|---|---|
+| Number of features | `p` | Usually known approximately |
+| Samples per group | `n` | A budget range |
+| Kind of change | `perturbation` | `"structural"` (edges appear/disappear), `"magnitude"` (strengths change), or `"both"` |
+| FDR target | `fdr` | 0.05 by default |
+| Method | `method` | The method you plan to use |
+
+```{r}
+unique(howbig_coverage()$method)
+```
+
+`JGL_*` is the joint graphical lasso (`_GGL` = group penalty, otherwise fused),
+`SSJGL_*` its spike-and-slab version, `multiGGM` a Bayesian joint GGM, `JRF`
+joint random forests, and `InvCov` an unregularized baseline. All were tuned
+the way they were in the simulation study; see the
+[methodology article](methodology.html).
+
+## Power for a design
+
+```{r}
+power_for(p = 250, n = 1000, method = "JGL_BIC")
+```
+
+The output reads:
+
+- **Sensitivity @ FDR 0.05**: mean power across simulated replicates, with
+  the 10th-90th percentile band. The band shows how much power varies from one
+  network to another, not uncertainty in the mean.
+- **Achieved FDR**: the false discovery rate the method actually reached; ✓
+  when within twice the target, ⚠ otherwise.
+- **AUPR**: area under the precision-recall curve for the method's ranking of
+  edges, a threshold-free measure of how well it separates differential edges
+  from the rest.
+
+### Calibration is part of the answer
+
+Change the kind of signal to a pure strength change and the same method
+misses its FDR target badly. Its sensitivity looks respectable, but almost a
+quarter of what it calls differential is not:
+
+```{r}
+power_for(p = 250, n = 1000, method = "JGL_BIC", perturbation = "magnitude")
+```
+
+## Sample size for a target power
+
+`n_for()` inverts the calculation:
+
+```{r}
+n_for(p = 250, power = 0.8, method = "JGL_BIC")
+```
+
+The curves behind that answer show how slowly power grows with sample size,
+and that methods plateau at different levels:
+
+```{r power-curves, echo = FALSE, fig.alt = "Line chart of sensitivity at FDR 0.05 against per-group sample size (log scale, 250 to 5000) at p = 250, for five methods. JGL_BIC rises from 0.28 to 0.81, SSJGL from 0.26 to 0.73, InvCov from 0.01 to 0.69, multiGGM plateaus near 0.43, and JRF reaches 0.40 at n = 1000. A dashed line marks the 0.8 target, which only JGL_BIC crosses, near n = 4500."}
+methods <- c("JGL_BIC", "SSJGL", "multiGGM", "JRF", "InvCov")
+cols <- c("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4")
+pchs <- c(16, 17, 15, 18, 1)
+cov <- howbig_coverage()
+arm <- cov[cov$perturbation == "structural" & cov$p == 250 &
+           is.finite(cov$sensitivity_mean), ]
+
+op <- par(mar = c(4.2, 4.2, 1, 1), family = "sans", col.axis = "#5f5e57",
+          col.lab = "#2b2a27", fg = "#cfcdc4", las = 1)
+plot(NA, xlim = c(250, 5000), ylim = c(0, 1), log = "x", axes = FALSE,
+     xlab = "Samples per group (log scale)", ylab = "Sensitivity @ FDR 0.05")
+axis(1, at = c(250, 500, 1000, 2000, 5000), lwd = 0, lwd.ticks = 1)
+axis(2, at = seq(0, 1, 0.2), lwd = 0, lwd.ticks = 1)
+abline(h = seq(0, 1, 0.2), col = "#ecebe6", lwd = 1)
+abline(h = 0.8, lty = 2, col = "#8f8d84", lwd = 1.5)
+text(260, 0.83, "target 0.8", adj = 0, col = "#5f5e57", cex = 0.8)
+for (i in seq_along(methods)) {
+  d <- arm[arm$method == methods[i], ]
+  d <- d[order(d$n), ]
+  lines(d$n, d$sensitivity_mean, col = cols[i], lwd = 2)
+  points(d$n, d$sensitivity_mean, col = cols[i], pch = pchs[i], cex = 1.2)
+}
+legend("bottomright", legend = methods, col = cols, pch = pchs, lwd = 2,
+       bty = "n", cex = 0.85, text.col = "#2b2a27", inset = c(0.01, 0.02))
+par(op)
+```
+
+The same numbers as a table:
+
+```{r power-table, echo = FALSE}
+tab <- xtabs(sensitivity_mean ~ method + n, arm[arm$method %in% methods, ])
+tab[tab == 0] <- NA   # cells never simulated
+options(knitr.kable.NA = "—")
+knitr::kable(round(unclass(tab)[methods, ], 2),
+             caption = "Sensitivity at FDR 0.05, p = 250, structural change",
+             col.names = paste0("n = ", colnames(tab)))
+```
+
+The group-penalty variants (`JGL_BIC_GGL`, `SSJGL_GGL`) closely track their
+fused counterparts and are omitted from the figure.
+
+## When the grid can't answer
+
+The grid covers two **arms** that cross at p = 250, n = 1000: sample size varies
+at p = 250, and feature count varies at n = 1000. A few extra cells sit off the
+arms.
+
+```{r coverage, echo = FALSE, fig.height = 4, fig.alt = "Scatter plot of grid coverage, feature count p against samples per group n on a log scale. Points form a cross: a vertical arm at p = 250 for n from 250 to 5000, and a horizontal arm at n = 1000 for p from 50 to 500, meeting at p = 250, n = 1000. One extra cell sits at p = 125, n = 100."}
+cells <- unique(cov[cov$perturbation == "structural", c("p", "n")])
+op <- par(mar = c(4.2, 4.2, 1, 1), family = "sans", col.axis = "#5f5e57",
+          col.lab = "#2b2a27", fg = "#cfcdc4", las = 1)
+plot(cells$p, cells$n, log = "y", pch = 16, col = "#2a78d6", cex = 1.5,
+     axes = FALSE, xlim = c(0, 520), ylim = c(80, 6000),
+     xlab = "Features (p)", ylab = "Samples per group (n, log scale)")
+axis(1, at = c(50, 100, 200, 250, 300, 500), lwd = 0, lwd.ticks = 1)
+axis(2, at = c(100, 250, 500, 1000, 2000, 5000), lwd = 0, lwd.ticks = 1)
+abline(v = 250, h = 1000, col = "#ecebe6", lwd = 1)
+points(cells$p, cells$n, pch = 16, col = "#2a78d6", cex = 1.5)
+text(258, 4200, "sample-size arm", adj = 0, col = "#5f5e57", cex = 0.8)
+text(400, 1250, "feature arm", adj = 0.5, col = "#5f5e57", cex = 0.8)
+text(140, 100, "off-arm cell", adj = 0, col = "#5f5e57", cex = 0.8)
+par(op)
+```
+
+A query **on an arm** between grid points is interpolated:
+
+```{r}
+power_for(p = 150, n = 1000, method = "JGL_BIC")
+```
+
+Interpolation stays on the arms because that is where it has been validated:
+re-simulating this design gives the same 0.65. Anywhere else, howbig declines
+to guess and says why:
+
+```{r}
+power_for(p = 150, n = 1500, method = "JGL_BIC")
+```
+
+The same happens for unequal group sizes and for FDR targets other than 0.05.
+
+## Simulating your design
+
+`simulate = TRUE`, or `simulate_power()` directly, simulates the exact design.
+It generates fresh networks and data the way the grid was built, fits the
+method, and scores its FDR-controlled calls against the truth. Here is a small
+run with unequal groups and a 10% FDR target. It uses the fast `InvCov`
+baseline and few replicates so this page builds quickly:
+
+```{r}
+simulate_power(p = 60, n = c(150, 350), method = "InvCov", fdr = 0.10,
+               reps = 10, n_perm = 10, seed = 1, verbose = FALSE)
+```
+
+For real use, keep the defaults (`reps = 20`, `n_perm = 30`) or raise them,
+and watch the Monte Carlo SE: it is the uncertainty in the mean sensitivity.
+
+### Runtime
+
+Every simulated replicate and every permutation for the null distribution is a
+full model fit, and fit costs vary enormously by method:
+
+| Method | p = 100 | p = 250 | p = 500 |
+|---|---|---|---|
+| `InvCov` | seconds | seconds | seconds |
+| `JGL_*` | ~6 s | ~1.5 min | ~15 min |
+| `SSJGL_*` | ~30 s | ~5 min | ~30-50 min |
+| `multiGGM` | ~4 min | ~1 hour | — |
+| `JRF` | ~20 min | ~20-90 min | — |
+
+*Median time per fit in the production simulation runs.*
+
+Before starting, `simulate_power()` prints an estimated runtime and refuses to
+start if it exceeds `max_minutes` (60 by default). Use `cores` to run fits in
+parallel worker processes:
+
+```{r, eval = FALSE}
+simulate_power(p = 150, n = 1500, method = "JGL_BIC", cores = 4)
+#> howbig: 50 JGL_BIC fits, estimated ~5 min on 4 core(s).
+```
+
+Simulated results are cached for the session, so asking again is instant.
+`n_for(..., simulate = TRUE)` searches several sample sizes, so it costs
+several simulations.
+
+## Assumptions to keep in mind
+
+- Networks are block-structured and scale-free, with Gaussian data; signal is
+  confined to one or two 25-feature blocks. Real biology may be harder or
+  easier.
+- Methods use fixed tuning choices (BIC for JGL, a fixed prior ladder for
+  SSJGL, fixed MCMC settings for multiGGM). Different choices could change
+  power.
+- The grid shipped now is interim (Barabási-Albert tree networks); it will be
+  replaced by denser scale-free networks.
