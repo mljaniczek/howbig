@@ -52,3 +52,4 @@ rsconnect/
 .claude/worktrees/
 .claude/settings.local.json
 .positai
+docs

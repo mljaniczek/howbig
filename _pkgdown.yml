@@ -1,30 +1,4 @@
 url: https://mljaniczek.github.io/howbig/
-
 template:
   bootstrap: 5
-  light-switch: true
 
-navbar:
-  structure:
-    left: [intro, reference, articles, news]
-    right: [search, github, lightswitch]
-
-reference:
-  - title: Power and sample size
-    desc: Answers from the precomputed grid, or by simulation.
-    contents:
-      - power_for
-      - n_for
-  - title: Simulation
-    desc: Simulate any design directly.
-    contents:
-      - simulate_power
-  - title: The grid
-    contents:
-      - howbig_coverage
-
-articles:
-  - title: Background
-    navbar: ~
-    contents:
-      - articles/methodology

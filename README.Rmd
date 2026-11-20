@@ -107,9 +107,3 @@ estimates its runtime before it starts and refuses to start runs longer than
   how the networks are generated, how each method is scored, and how howbig
   was validated.
 
-## Status
-
-howbig is experimental. The grid it ships with is **interim**: it was
-simulated on Barabási-Albert *tree* networks. It will be replaced by a grid
-on denser scale-free networks (mean degree ~3.8, matching Danaher et al.
-2014), and numbers will shift when that lands.

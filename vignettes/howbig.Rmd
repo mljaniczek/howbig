@@ -18,8 +18,8 @@ library(howbig)
 
 ## The question
 
-Differential network analysis compares two groups (say, cases and controls)
-and asks which edges in a Gaussian graphical model differ between them. howbig
+Differential network analysis compares two or more groups (say, cases and controls)
+and asks which edges in a graphical model differ between them. howbig
 answers the planning question that comes first: **how many samples do I need
 to find those edges?**
 
