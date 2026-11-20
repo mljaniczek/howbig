@@ -1,9 +1,10 @@
 Package: howbig
 Title: Empirical, Method-Aware Power Analysis for Differential Network Analysis
 Version: 0.0.0.9000
-Authors@R:
-    person("Margie", "Hannum", email = "margie.hannum@gmail.com",
-           role = c("aut", "cre"))
+Authors@R:c(
+    person("Margaret", "Janiczek", , "mjaniczek@umass.edu", role = c("aut", "cre")),
+    person("Raji", "Balasubramanian", , "rbalasub@umass.edu", role = "aut")
+  )
 Description: Sample-size and power calculations for differential network
     analysis, grounded in a precomputed simulation grid across sample size,
     feature count, perturbation type, and estimation method. Power is the
