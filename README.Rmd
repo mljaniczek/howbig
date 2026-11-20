@@ -16,13 +16,12 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 
 **How big a sample do you need to find what changed in a network?**
 
-howbig gives power and sample-size calculations for differential network
-analysis: comparing two groups' Gaussian graphical models to find the edges
-that differ. It is a network-native, method-aware analogue to
+`howbig` gives power and sample-size calculations for differential network
+analysis: comparing two or more groups' estimated graphical models to find the edges that differ. It is a network-native, method-aware analogue to
 [pwr](https://cran.r-project.org/package=pwr).
 
 Its answers are empirical. They come from a large simulation study that ran
-seven estimation methods across sample sizes, feature counts, and kinds of
+seven  estimation methods across sample sizes, feature counts, and kinds of
 differential signal, plus an on-demand simulator for designs the study didn't
 cover. That evidence shows things a formula would hide:
 
@@ -30,7 +29,7 @@ cover. That evidence shows things a formula would hide:
   lasso needs roughly 4,500 samples per group to recover 80% of the
   differential edges.
 - **Method choice matters, and no method wins everywhere.**
-- **Some methods lose FDR control under some kinds of signal.** howbig reports
+- **Some methods lose FDR control under some kinds of signal.** `howbig` reports
   the false discovery rate a method actually achieves, next to its power, so
   that assumption is visible.
 
@@ -67,6 +66,7 @@ way, ask for the sample size that reaches a target power:
 
 ```{r}
 n_for(p = 250, power = 0.8, method = "JGL_BIC")
+
 ```
 
 If you expect edge **strengths** to change rather than edges to appear or
