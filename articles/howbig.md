@@ -7,10 +7,10 @@ library(howbig)
 
 ## The question
 
-Differential network analysis compares two groups (say, cases and
-controls) and asks which edges in a Gaussian graphical model differ
-between them. howbig answers the planning question that comes first:
-**how many samples do I need to find those edges?**
+Differential network analysis compares two or more groups (say, cases
+and controls) and asks which edges in a graphical model differ between
+them. howbig answers the planning question that comes first: **how many
+samples do I need to find those edges?**
 
 ### What “power” means here
 
@@ -190,13 +190,11 @@ simulate_power(p = 60, n = c(150, 350), method = "InvCov", fdr = 0.10,
                reps = 10, n_perm = 10, seed = 1, verbose = FALSE)
 #> howbig power estimate  [simulated]
 #>   InvCov | structural perturbation | p = 60, n = 150 / 350
-#>   Sensitivity @ FDR 0.10:  0.05   (80% band 0.00–0.11)
-#>   Monte Carlo SE of mean:  0.017
-#>   Achieved FDR:            0.207 ⚠
+#>   Sensitivity @ FDR 0.10:  0.04   (80% band 0.00–0.09)
+#>   Monte Carlo SE of mean:  0.018
+#>   Achieved FDR:            0.133 ✓
 #>   AUPR (threshold-free):   0.21
 #>   based on 10 reps, 10-permutation null; 0.0 min
-#> note: achieved FDR 0.21 exceeds target 0.10 — this method is not
-#>         calibrated here.
 ```
 
 For real use, keep the defaults (`reps = 20`, `n_perm = 30`) or raise
