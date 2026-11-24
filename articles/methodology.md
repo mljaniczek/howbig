@@ -1,6 +1,6 @@
 # Methodology
 
-This article documents where howbig’s numbers come from: the simulated
+This article documents where `howbig`’s numbers come from: the simulated
 networks, how each method is scored, how the grid is used, and how the
 answers were checked.
 
@@ -9,11 +9,11 @@ answers were checked.
 Each simulated design starts from two networks: group 1, and group 2,
 which equals group 1 plus a localized change.
 
-**Group 1** is built in four steps:
+**Group 1** (default scenario) is built in four steps:
 
 1.  **Blocks.** Features are split into blocks of 25 (designs with p \<
-    50 use two equal blocks). Each block is a Barabási-Albert
-    preferential-attachment graph.
+    50 use two equal blocks). Each block is a sparse Barabási-Albert
+    tree (preferential attachment with one edge per new node).
 2.  **Between-block edges.** Pairs in different blocks connect with
     probability 0.01 × 5 / B for B blocks, which keeps the expected
     number of between-block edges roughly constant as p grows.
@@ -41,8 +41,10 @@ entries differ by more than 0.01, i.e. \|Θ₁ − Θ₂\| \> 0.01. This
 definition counts strength changes as well as edges that appear or
 disappear.
 
-**Data.** Each group’s samples are drawn from a zero-mean multivariate
-normal with that group’s covariance (the inverse precision).
+**Data.** Group 1 draws n₁ samples and group 2 draws n₂ samples from
+zero-mean multivariate normals with each group’s covariance (the inverse
+precision). Group 1 is the reference group, so with unequal groups the
+order of `n = c(n1, n2)` matters.
 
 ### Differential edges are rare, and rarer as p grows
 
@@ -58,37 +60,64 @@ with the package’s own generator:
 |          250 |         31125 |                        52 | 0.17%              |
 |          500 |        124750 |                        51 | 0.04%              |
 
+### Assumption scenarios
+
+At the anchor design (p = 100, n = 1000 per group, structural change)
+the grid also holds the same design under other assumptions, selected
+with `scenario`. Each shares the default design’s random seeds, so the
+comparison with the default is paired.
+
+| `scenario` | What differs from the default |
+|----|----|
+| `"scale_free"` | Denser Barabási-Albert blocks (two edges per new node; mean degree ~3.8, as in Danaher et al. 2014) |
+| `"erdos_renyi"` | Random blocks, within-block edge probability 0.15 |
+| `"ar1_banded"` | No blocks: a banded network with geometrically decaying entries (ρ = 0.11, bandwidth 1); the change applies to features 1-25 |
+| `"censored_5"`, `"censored_25"`, `"censored_50"` | Values below each feature’s detection limit set to zero, the limit chosen so about 5%, 25% or 50% of values are zero |
+| `"uniform_weights"` | Edge weights uniform on \[−0.4, −0.1\] ∪ \[0.1, 0.4\] |
+
 ## Methods
 
-Each method runs with the same fixed configuration it had in the
-simulation study:
+`howbig` includes the nine methods from the source study whose
+FDR-controlled calls could be scored across the grid. Each runs with the
+fixed configuration it had there:
 
-| Method | Package | Configuration | Edge score for ranking |
+| Method | Package | Configuration | How differential edges are called |
 |----|----|----|----|
-| `JGL_BIC` | JGL | Fused penalty; λ₁ then λ₂ chosen by BIC over a data-adaptive 10-value grid | \|Θ̂₁ − Θ̂₂\| |
-| `JGL_BIC_GGL` | JGL | Group penalty; same tuning | \|Θ̂₁ − Θ̂₂\| |
-| `SSJGL` | spikeyglass | Fused spike-and-slab; 3-step v₀ ladder | \|Θ̂₁ − Θ̂₂\| |
-| `SSJGL_GGL` | spikeyglass | Group spike-and-slab; same ladder | \|Θ̂₁ − Θ̂₂\| |
-| `multiGGM` | multiGGM | SSVS; 2 chains × (5,000 burn-in + 1,000 saved) | \|Θ̂₁ − Θ̂₂\| masked to edges with posterior inclusion ≥ 0.05 |
-| `JRF` | iJRFNet | 1,000 trees, mtry = √(p − 1) | \|importance₁ − importance₂\| |
-| `InvCov` | (base R) | Inverse sample covariance (pseudoinverse when singular) | \|Θ̂₁ − Θ̂₂\| |
+| `JGL_BIC` | JGL | Fused penalty; λ₁ then λ₂ chosen by BIC over a data-adaptive 10-value grid | Permutation null + BH |
+| `JGL_BIC_GGL` | JGL | Group penalty; same tuning | Permutation null + BH |
+| `SSJGL` | spikeyglass | Fused spike-and-slab; 3-step v₀ ladder | Permutation null + BH |
+| `SSJGL_GGL` | spikeyglass | Group spike-and-slab; same ladder | Permutation null + BH |
+| `multiGGM` | multiGGM | SSVS; 2 chains × (5,000 burn-in + 1,000 saved) | Posterior FDR |
+| `InvCov` | (base R) | Inverse sample covariance (pseudoinverse when singular) | Permutation null + BH |
+| `mGHS` | multiGGM | Multiple graphical horseshoe; 10,000 iterations, 5,000 burn-in | Posterior FDR |
+| `DiffNetFDR` | DiffNetFDR | Partial-correlation difference test | The method’s own FDR procedure |
+| `ONDSA` | ONDSA / FastGGM | Debiased differential test; λ = √(2 log(p / √n) / n) | The method’s own FDR procedure |
+
+Seven further methods from the source study are not included: JRF (its
+sensitivity could be scored in under half the designs, and its
+differential score breaks down with unequal group sizes), jewel (it
+misses its FDR target, 0.13 at the anchor), D-trace and PNJGL (no
+FDR-controlled calls, so no power), and three sensitivity-check
+configurations run in only a few designs.
 
 ## Scoring
 
 **FDR-controlled calls.** Power needs a set of edges each method
 *declares* differential at the FDR target:
 
-- **Frequentist methods** are compared to a **permutation null**. One
-  representative network pair is generated. For each of `n_perm`
-  permutations, fresh data are drawn, group labels are shuffled, and the
-  method is refit. The edge scores from all permutations are pooled into
-  one null distribution. Each observed edge score gets an empirical
+- **Permutation null + BH.** One representative network pair is
+  generated. For each of `n_perm` permutations, fresh data are drawn,
+  group labels are shuffled (keeping the group sizes), and the method is
+  refit. The edge scores \|Θ̂₁ − Θ̂₂\| from all permutations are pooled
+  into one null distribution. Each observed edge score gets an empirical
   p-value against the pooled null, and the Benjamini-Hochberg procedure
   is applied at the target.
-- **multiGGM** (Bayesian) uses its posterior probabilities directly.
-  Edges are ranked by their posterior probability of differing, and the
-  largest top set whose average (1 − probability) stays at or below the
-  target is declared.
+- **Posterior FDR** (Bayesian methods). Each edge gets its posterior
+  probability that the two groups differ by more than 0.1, P(\|Θ₁ − Θ₂\|
+  \> 0.1). The largest top set of edges whose average (1 − probability)
+  stays at or below the target is declared.
+- **The method’s own FDR procedure.** DiffNetFDR and ONDSA make their
+  own calls at the target, and those are scored as they are.
 
 From those calls:
 
@@ -97,7 +126,7 @@ From those calls:
 - **Achieved FDR** = declared edges that are not truly differential /
   all declared edges.
 - **AUPR**, a threshold-free secondary measure: area under the
-  precision-recall curve of the edge ranking.
+  precision-recall curve of the method’s edge ranking.
 
 Each replicate draws a fresh network and data. The reported value is the
 mean over replicates, with the 10th-90th percentile band showing how
@@ -105,68 +134,74 @@ much power varies between networks.
 
 ## The grid
 
-The precomputed grid holds two one-dimensional sweeps (100 replicates
-per cell for most cells) that cross at one anchor:
+The precomputed grid (100 replicates in 197 of its 206 cells) holds, for
+the default scenario:
 
-- **sample-size arm:** n = 250, 500, 1000, 2000, 5000 at p = 250;
+- **sample-size arm:** n = 100, 250, 500, 1000, 2000, 5000 at p = 250;
 - **feature arm:** p = 50, 100, 200, 250, 300, 500 at n = 1000;
-- **perturbation:** structural, magnitude, and both at the anchor (p =
-  250, n = 1000), plus one off-arm cell (p = 125, n = 100).
+- **small samples at p = 100:** n = 50 and 100;
+- **the anchor** (p = 100, n = 1000): all three perturbation types,
+  unequal groups (n₁ = 500, n₂ = 1500, the same total), and the
+  assumption scenarios above.
 
 ``` r
 
 head(howbig_coverage("JGL_BIC"))
-#>    method perturbation   p    n sensitivity_mean achieved_fdr_mean aupr_mean
-#> 1 JGL_BIC         both 250 1000        0.5608341        0.12456062 0.6512269
-#> 2 JGL_BIC    magnitude 250 1000        0.5225000        0.23693713 0.6026836
-#> 3 JGL_BIC   structural  50 1000        0.8644051        0.15634127 0.8995674
-#> 4 JGL_BIC   structural 100 1000        0.7042371        0.04089320 0.7971779
-#> 5 JGL_BIC   structural 125  100        0.1237164        0.04679365 0.2733937
-#> 6 JGL_BIC   structural 200 1000        0.6268269        0.05321761 0.7173458
-#>   n_reps
-#> 1    100
-#> 2    100
-#> 3    100
-#> 4    100
-#> 5     50
-#> 6    100
+#>    method    scenario perturbation   p   n1   n2 sensitivity_mean
+#> 1 JGL_BIC  ar1_banded   structural 100 1000 1000        0.1141667
+#> 2 JGL_BIC censored_25   structural 100 1000 1000        0.6472810
+#> 3 JGL_BIC  censored_5   structural 100 1000 1000        0.6759562
+#> 4 JGL_BIC censored_50   structural 100 1000 1000        0.5782838
+#> 5 JGL_BIC     default         both 100 1000 1000        0.6773248
+#> 6 JGL_BIC     default    magnitude 100 1000 1000        0.6395833
+#>   achieved_fdr_mean aupr_mean n_diff_edges n_pairs n_reps
+#> 1        0.02188347 0.5101047        24.00    4950    100
+#> 2        0.09230322 0.7458427        45.49    4950    100
+#> 3        0.03949096 0.7837786        45.49    4950    100
+#> 4        0.08012585 0.6979188        45.49    4950    100
+#> 5        0.10458554 0.7780510        70.23    4950    100
+#> 6        0.16805053 0.7377327        24.00    4950    100
 ```
 
-Some cells lack a scored sensitivity (for example, JGL and SSJGL at p =
-500, where permutation nulls were not computed); there howbig reports
-AUPR and suggests simulating. One cell (JRF at p = 250, n = 2000) has
-only 2 replicates, and howbig flags it.
+A few cells have fewer replicates because some fits failed or timed out;
+the thinnest (multiGGM at p = 500, n = 1000) has only 2, and `howbig`
+flags any cell with fewer than 20.
 
 ## Interpolation
 
 Queries **on an arm**, between grid points, are interpolated with a
 monotone (Fritsch-Carlson) spline on log(n) or log(p). Interpolation
-never extrapolates past the ends of an arm, and never crosses between
-arms.
+never extrapolates past the ends of an arm, never crosses between arms,
+and is never applied to unequal groups or non-default scenarios, which
+are answered exactly or not at all.
 
 That restriction is deliberate and was tested:
 
 | Check | Result |
 |----|----|
-| Leave-one-out along the feature arm (AUPR) | mean absolute error 0.007 |
-| Leave-one-out along the sample-size arm (AUPR) | 0.03 overall; JRF up to 0.20 (its curve bends sharply) |
-| Predicting the off-arm cell (p = 125, n = 100) by combining the two arms | errors around 0.20, consistently too optimistic |
+| Leave-one-out along the feature arm | mean absolute error 0.014 (sensitivity), 0.009 (AUPR) |
+| Leave-one-out along the sample-size arm | 0.018 (sensitivity), 0.014 (AUPR); worst case 0.06 (InvCov, whose curve bends sharply near n = 100) |
+| Predicting an off-arm cell by combining the two arms (earlier grid) | errors around 0.20, consistently too optimistic |
 | Interpolated vs freshly simulated, p = 150, n = 1000, JGL_BIC | sensitivity 0.65 vs 0.65 (± 0.02) |
+| Unequal groups vs balanced groups at the harmonic-mean size | not interchangeable: 0.61 vs 0.65 for JGL_BIC, 0.31 vs 0.39 for InvCov |
 
-So on-arm interpolation is trustworthy, while combining arms to predict
-off-arm designs is not; howbig simulates those instead.
+So on-arm interpolation is trustworthy, while combining arms, or
+converting unequal groups to an “effective” balanced size, is not;
+`howbig` simulates those designs instead.
 
 ## On-demand simulation
 
 [`simulate_power()`](https://mljaniczek.github.io/howbig/reference/simulate_power.md)
-runs the pipeline above for any design, with the same network family as
-the shipped grid, so grid and simulated answers describe the same
-networks. It was checked by re-simulating grid cells:
+runs the pipeline above for any design in the default scenario, for the
+six methods whose packages it wraps, with the same network family as the
+grid. It was checked by re-simulating grid cells:
 
-| Design                       | Grid | Simulated (20 replicates) |
-|------------------------------|------|---------------------------|
-| `InvCov`, p = 100, n = 1000  | 0.49 | 0.48                      |
-| `JGL_BIC`, p = 100, n = 1000 | 0.70 | 0.68 (± 0.02)             |
+| Design                             | Grid | Simulated (20 replicates) |
+|------------------------------------|------|---------------------------|
+| `InvCov`, p = 100, n = 1000        | 0.49 | 0.49                      |
+| `JGL_BIC`, p = 100, n = 1000       | 0.70 | 0.70 (± 0.02)             |
+| `InvCov`, p = 100, n = 500 / 1500  | 0.32 | 0.31                      |
+| `JGL_BIC`, p = 100, n = 500 / 1500 | 0.62 | 0.61 (± 0.02)             |
 
 Implementation notes:
 
@@ -176,17 +211,14 @@ Implementation notes:
   Forking after a multithreaded linear-algebra library (such as Apple
   Accelerate) has started can crash the workers.
 - **Runtime estimates** come from a per-method regression of log fit
-  time on log(p) and log(n), fit to the production timings. It predicts
-  within about 30%.
+  time on log(p) and log(n), fit to the production timings.
 
 ## Source
 
 The simulation design, generators, and scoring are ported from the
 simulation study for the DiNA differential network analysis tutorial
-(manuscript in preparation). The shipped grid is the study’s interim
-Barabási-Albert *tree* family (mean degree ~1.9); it will be replaced by
-the scale-free family (mean degree ~3.8), matching the networks of
-Danaher et al. (2014).
+(manuscript in preparation), whose main reporting family is the
+Barabási-Albert tree networks used as the default here.
 
 Danaher, P., Wang, P., & Witten, D. M. (2014). The joint graphical lasso
 for inverse covariance estimation across multiple classes. *Journal of

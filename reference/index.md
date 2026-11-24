@@ -4,6 +4,8 @@
 
 - [`howbig_coverage()`](https://mljaniczek.github.io/howbig/reference/howbig_coverage.md)
   : Coverage of the built-in grid
+- [`howbig_methods()`](https://mljaniczek.github.io/howbig/reference/howbig_methods.md)
+  : Methods available in howbig
 - [`n_for()`](https://mljaniczek.github.io/howbig/reference/n_for.md) :
   Required sample size for a target power
 - [`power_for()`](https://mljaniczek.github.io/howbig/reference/power_for.md)

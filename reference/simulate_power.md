@@ -38,13 +38,12 @@ simulate_power(
 - method:
 
   Estimation method label. See
-  [`howbig_coverage()`](https://mljaniczek.github.io/howbig/reference/howbig_coverage.md)
-  for the available methods.
+  [`howbig_methods()`](https://mljaniczek.github.io/howbig/reference/howbig_methods.md).
 
 - perturbation:
 
   Type of differential signal: `"structural"` (edges appear/disappear),
-  `"magnitude"` (edge weights change), or `"both"`.
+  `"magnitude"` (edge strengths change), or `"both"`.
 
 - fdr:
 

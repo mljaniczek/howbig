@@ -65,20 +65,22 @@
 
     
     
-<p>This article documents where howbig’s numbers come from: the
-simulated networks, how each method is scored, how the grid is used, and
-how the answers were checked.</p>
+<p>This article documents where <code>howbig</code>’s numbers come from:
+the simulated networks, how each method is scored, how the grid is used,
+and how the answers were checked.</p>
 <div class="section level2">
 <h2 id="simulated-networks">Simulated networks<a class="anchor" aria-label="anchor" href="#simulated-networks"></a>
 </h2>
 <p>Each simulated design starts from two networks: group 1, and group 2,
 which equals group 1 plus a localized change.</p>
-<p><strong>Group 1</strong> is built in four steps:</p>
+<p><strong>Group 1</strong> (default scenario) is built in four
+steps:</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Blocks.</strong> Features are split into blocks of 25
-(designs with p &lt; 50 use two equal blocks). Each block is a
-Barabási-Albert preferential-attachment graph.</li>
+(designs with p &lt; 50 use two equal blocks). Each block is a sparse
+Barabási-Albert tree (preferential attachment with one edge per new
+node).</li>
 <li>
 <strong>Between-block edges.</strong> Pairs in different blocks
 connect with probability 0.01 × 5 / B for B blocks, which keeps the
@@ -130,9 +132,10 @@ row-sum normalization cannot cancel it.</p>
 groups’ precision entries differ by more than 0.01, i.e. |Θ₁ − Θ₂| &gt;
 0.01. This definition counts strength changes as well as edges that
 appear or disappear.</p>
-<p><strong>Data.</strong> Each group’s samples are drawn from a
-zero-mean multivariate normal with that group’s covariance (the inverse
-precision).</p>
+<p><strong>Data.</strong> Group 1 draws n₁ samples and group 2 draws n₂
+samples from zero-mean multivariate normals with each group’s covariance
+(the inverse precision). Group 1 is the reference group, so with unequal
+groups the order of <code>n = c(n1, n2)</code> matters.</p>
 <div class="section level3">
 <h3 id="differential-edges-are-rare-and-rarer-as-p-grows">Differential edges are rare, and rarer as p grows<a class="anchor" aria-label="anchor" href="#differential-edges-are-rare-and-rarer-as-p-grows"></a>
 </h3>
@@ -181,12 +184,59 @@ with the package’s own generator:</p>
 </tbody>
 </table>
 </div>
+<div class="section level3">
+<h3 id="assumption-scenarios">Assumption scenarios<a class="anchor" aria-label="anchor" href="#assumption-scenarios"></a>
+</h3>
+<p>At the anchor design (p = 100, n = 1000 per group, structural change)
+the grid also holds the same design under other assumptions, selected
+with <code>scenario</code>. Each shares the default design’s random
+seeds, so the comparison with the default is paired.</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th><code>scenario</code></th>
+<th>What differs from the default</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>"scale_free"</code></td>
+<td>Denser Barabási-Albert blocks (two edges per new node; mean degree
+~3.8, as in Danaher et al. 2014)</td>
+</tr>
+<tr class="even">
+<td><code>"erdos_renyi"</code></td>
+<td>Random blocks, within-block edge probability 0.15</td>
+</tr>
+<tr class="odd">
+<td><code>"ar1_banded"</code></td>
+<td>No blocks: a banded network with geometrically decaying entries (ρ =
+0.11, bandwidth 1); the change applies to features 1-25</td>
+</tr>
+<tr class="even">
+<td>
+<code>"censored_5"</code>, <code>"censored_25"</code>,
+<code>"censored_50"</code>
+</td>
+<td>Values below each feature’s detection limit set to zero, the limit
+chosen so about 5%, 25% or 50% of values are zero</td>
+</tr>
+<tr class="odd">
+<td><code>"uniform_weights"</code></td>
+<td>Edge weights uniform on [−0.4, −0.1] ∪ [0.1, 0.4]</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 <div class="section level2">
 <h2 id="methods">Methods<a class="anchor" aria-label="anchor" href="#methods"></a>
 </h2>
-<p>Each method runs with the same fixed configuration it had in the
-simulation study:</p>
+<p><code>howbig</code> includes the nine methods from the source study
+whose FDR-controlled calls could be scored across the grid. Each runs
+with the fixed configuration it had there:</p>
 <table class="table">
 <colgroup>
 <col width="25%">
@@ -198,7 +248,7 @@ simulation study:</p>
 <th>Method</th>
 <th>Package</th>
 <th>Configuration</th>
-<th>Edge score for ranking</th>
+<th>How differential edges are called</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
@@ -206,46 +256,64 @@ simulation study:</p>
 <td>JGL</td>
 <td>Fused penalty; λ₁ then λ₂ chosen by BIC over a data-adaptive
 10-value grid</td>
-<td>|Θ̂₁ − Θ̂₂|</td>
+<td>Permutation null + BH</td>
 </tr>
 <tr class="even">
 <td><code>JGL_BIC_GGL</code></td>
 <td>JGL</td>
 <td>Group penalty; same tuning</td>
-<td>|Θ̂₁ − Θ̂₂|</td>
+<td>Permutation null + BH</td>
 </tr>
 <tr class="odd">
 <td><code>SSJGL</code></td>
 <td>spikeyglass</td>
 <td>Fused spike-and-slab; 3-step v₀ ladder</td>
-<td>|Θ̂₁ − Θ̂₂|</td>
+<td>Permutation null + BH</td>
 </tr>
 <tr class="even">
 <td><code>SSJGL_GGL</code></td>
 <td>spikeyglass</td>
 <td>Group spike-and-slab; same ladder</td>
-<td>|Θ̂₁ − Θ̂₂|</td>
+<td>Permutation null + BH</td>
 </tr>
 <tr class="odd">
 <td><code>multiGGM</code></td>
 <td>multiGGM</td>
 <td>SSVS; 2 chains × (5,000 burn-in + 1,000 saved)</td>
-<td>|Θ̂₁ − Θ̂₂| masked to edges with posterior inclusion ≥ 0.05</td>
+<td>Posterior FDR</td>
 </tr>
 <tr class="even">
-<td><code>JRF</code></td>
-<td>iJRFNet</td>
-<td>1,000 trees, mtry = √(p − 1)</td>
-<td>|importance₁ − importance₂|</td>
-</tr>
-<tr class="odd">
 <td><code>InvCov</code></td>
 <td>(base R)</td>
 <td>Inverse sample covariance (pseudoinverse when singular)</td>
-<td>|Θ̂₁ − Θ̂₂|</td>
+<td>Permutation null + BH</td>
+</tr>
+<tr class="odd">
+<td><code>mGHS</code></td>
+<td>multiGGM</td>
+<td>Multiple graphical horseshoe; 10,000 iterations, 5,000 burn-in</td>
+<td>Posterior FDR</td>
+</tr>
+<tr class="even">
+<td><code>DiffNetFDR</code></td>
+<td>DiffNetFDR</td>
+<td>Partial-correlation difference test</td>
+<td>The method’s own FDR procedure</td>
+</tr>
+<tr class="odd">
+<td><code>ONDSA</code></td>
+<td>ONDSA / FastGGM</td>
+<td>Debiased differential test; λ = √(2 log(p / √n) / n)</td>
+<td>The method’s own FDR procedure</td>
 </tr>
 </tbody>
 </table>
+<p>Seven further methods from the source study are not included: JRF
+(its sensitivity could be scored in under half the designs, and its
+differential score breaks down with unequal group sizes), jewel (it
+misses its FDR target, 0.13 at the anchor), D-trace and PNJGL (no
+FDR-controlled calls, so no power), and three sensitivity-check
+configurations run in only a few designs.</p>
 </div>
 <div class="section level2">
 <h2 id="scoring">Scoring<a class="anchor" aria-label="anchor" href="#scoring"></a>
@@ -254,18 +322,22 @@ simulation study:</p>
 each method <em>declares</em> differential at the FDR target:</p>
 <ul>
 <li>
-<strong>Frequentist methods</strong> are compared to a
-<strong>permutation null</strong>. One representative network pair is
-generated. For each of <code>n_perm</code> permutations, fresh data are
-drawn, group labels are shuffled, and the method is refit. The edge
-scores from all permutations are pooled into one null distribution. Each
-observed edge score gets an empirical p-value against the pooled null,
-and the Benjamini-Hochberg procedure is applied at the target.</li>
+<strong>Permutation null + BH.</strong> One representative network
+pair is generated. For each of <code>n_perm</code> permutations, fresh
+data are drawn, group labels are shuffled (keeping the group sizes), and
+the method is refit. The edge scores |Θ̂₁ − Θ̂₂| from all permutations are
+pooled into one null distribution. Each observed edge score gets an
+empirical p-value against the pooled null, and the Benjamini-Hochberg
+procedure is applied at the target.</li>
 <li>
-<strong>multiGGM</strong> (Bayesian) uses its posterior
-probabilities directly. Edges are ranked by their posterior probability
-of differing, and the largest top set whose average (1 − probability)
-stays at or below the target is declared.</li>
+<strong>Posterior FDR</strong> (Bayesian methods). Each edge gets
+its posterior probability that the two groups differ by more than 0.1,
+P(|Θ₁ − Θ₂| &gt; 0.1). The largest top set of edges whose average (1 −
+probability) stays at or below the target is declared.</li>
+<li>
+<strong>The method’s own FDR procedure.</strong> DiffNetFDR and
+ONDSA make their own calls at the target, and those are scored as they
+are.</li>
 </ul>
 <p>From those calls:</p>
 <ul>
@@ -277,7 +349,7 @@ declared / all true differential edges.</li>
 differential / all declared edges.</li>
 <li>
 <strong>AUPR</strong>, a threshold-free secondary measure: area
-under the precision-recall curve of the edge ranking.</li>
+under the precision-recall curve of the method’s edge ranking.</li>
 </ul>
 <p>Each replicate draws a fresh network and data. The reported value is
 the mean over replicates, with the 10th-90th percentile band showing how
@@ -286,48 +358,50 @@ much power varies between networks.</p>
 <div class="section level2">
 <h2 id="the-grid">The grid<a class="anchor" aria-label="anchor" href="#the-grid"></a>
 </h2>
-<p>The precomputed grid holds two one-dimensional sweeps (100 replicates
-per cell for most cells) that cross at one anchor:</p>
+<p>The precomputed grid (100 replicates in 197 of its 206 cells) holds,
+for the default scenario:</p>
 <ul>
 <li>
-<strong>sample-size arm:</strong> n = 250, 500, 1000, 2000, 5000 at
-p = 250;</li>
+<strong>sample-size arm:</strong> n = 100, 250, 500, 1000, 2000,
+5000 at p = 250;</li>
 <li>
 <strong>feature arm:</strong> p = 50, 100, 200, 250, 300, 500 at n =
 1000;</li>
 <li>
-<strong>perturbation:</strong> structural, magnitude, and both at
-the anchor (p = 250, n = 1000), plus one off-arm cell (p = 125, n =
-100).</li>
+<strong>small samples at p = 100:</strong> n = 50 and 100;</li>
+<li>
+<strong>the anchor</strong> (p = 100, n = 1000): all three
+perturbation types, unequal groups (n₁ = 500, n₂ = 1500, the same
+total), and the assumption scenarios above.</li>
 </ul>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="../reference/howbig_coverage.html">howbig_coverage</a></span><span class="op">(</span><span class="st">"JGL_BIC"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;    method perturbation   p    n sensitivity_mean achieved_fdr_mean aupr_mean</span></span>
-<span><span class="co">#&gt; 1 JGL_BIC         both 250 1000        0.5608341        0.12456062 0.6512269</span></span>
-<span><span class="co">#&gt; 2 JGL_BIC    magnitude 250 1000        0.5225000        0.23693713 0.6026836</span></span>
-<span><span class="co">#&gt; 3 JGL_BIC   structural  50 1000        0.8644051        0.15634127 0.8995674</span></span>
-<span><span class="co">#&gt; 4 JGL_BIC   structural 100 1000        0.7042371        0.04089320 0.7971779</span></span>
-<span><span class="co">#&gt; 5 JGL_BIC   structural 125  100        0.1237164        0.04679365 0.2733937</span></span>
-<span><span class="co">#&gt; 6 JGL_BIC   structural 200 1000        0.6268269        0.05321761 0.7173458</span></span>
-<span><span class="co">#&gt;   n_reps</span></span>
-<span><span class="co">#&gt; 1    100</span></span>
-<span><span class="co">#&gt; 2    100</span></span>
-<span><span class="co">#&gt; 3    100</span></span>
-<span><span class="co">#&gt; 4    100</span></span>
-<span><span class="co">#&gt; 5     50</span></span>
-<span><span class="co">#&gt; 6    100</span></span></code></pre></div>
-<p>Some cells lack a scored sensitivity (for example, JGL and SSJGL at p
-= 500, where permutation nulls were not computed); there howbig reports
-AUPR and suggests simulating. One cell (JRF at p = 250, n = 2000) has
-only 2 replicates, and howbig flags it.</p>
+<span><span class="co">#&gt;    method    scenario perturbation   p   n1   n2 sensitivity_mean</span></span>
+<span><span class="co">#&gt; 1 JGL_BIC  ar1_banded   structural 100 1000 1000        0.1141667</span></span>
+<span><span class="co">#&gt; 2 JGL_BIC censored_25   structural 100 1000 1000        0.6472810</span></span>
+<span><span class="co">#&gt; 3 JGL_BIC  censored_5   structural 100 1000 1000        0.6759562</span></span>
+<span><span class="co">#&gt; 4 JGL_BIC censored_50   structural 100 1000 1000        0.5782838</span></span>
+<span><span class="co">#&gt; 5 JGL_BIC     default         both 100 1000 1000        0.6773248</span></span>
+<span><span class="co">#&gt; 6 JGL_BIC     default    magnitude 100 1000 1000        0.6395833</span></span>
+<span><span class="co">#&gt;   achieved_fdr_mean aupr_mean n_diff_edges n_pairs n_reps</span></span>
+<span><span class="co">#&gt; 1        0.02188347 0.5101047        24.00    4950    100</span></span>
+<span><span class="co">#&gt; 2        0.09230322 0.7458427        45.49    4950    100</span></span>
+<span><span class="co">#&gt; 3        0.03949096 0.7837786        45.49    4950    100</span></span>
+<span><span class="co">#&gt; 4        0.08012585 0.6979188        45.49    4950    100</span></span>
+<span><span class="co">#&gt; 5        0.10458554 0.7780510        70.23    4950    100</span></span>
+<span><span class="co">#&gt; 6        0.16805053 0.7377327        24.00    4950    100</span></span></code></pre></div>
+<p>A few cells have fewer replicates because some fits failed or timed
+out; the thinnest (multiGGM at p = 500, n = 1000) has only 2, and
+<code>howbig</code> flags any cell with fewer than 20.</p>
 </div>
 <div class="section level2">
 <h2 id="interpolation">Interpolation<a class="anchor" aria-label="anchor" href="#interpolation"></a>
 </h2>
 <p>Queries <strong>on an arm</strong>, between grid points, are
 interpolated with a monotone (Fritsch-Carlson) spline on log(n) or
-log(p). Interpolation never extrapolates past the ends of an arm, and
-never crosses between arms.</p>
+log(p). Interpolation never extrapolates past the ends of an arm, never
+crosses between arms, and is never applied to unequal groups or
+non-default scenarios, which are answered exactly or not at all.</p>
 <p>That restriction is deliberate and was tested:</p>
 <table class="table">
 <colgroup>
@@ -340,34 +414,41 @@ never crosses between arms.</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td>Leave-one-out along the feature arm (AUPR)</td>
-<td>mean absolute error 0.007</td>
+<td>Leave-one-out along the feature arm</td>
+<td>mean absolute error 0.014 (sensitivity), 0.009 (AUPR)</td>
 </tr>
 <tr class="even">
-<td>Leave-one-out along the sample-size arm (AUPR)</td>
-<td>0.03 overall; JRF up to 0.20 (its curve bends sharply)</td>
+<td>Leave-one-out along the sample-size arm</td>
+<td>0.018 (sensitivity), 0.014 (AUPR); worst case 0.06 (InvCov, whose
+curve bends sharply near n = 100)</td>
 </tr>
 <tr class="odd">
-<td>Predicting the off-arm cell (p = 125, n = 100) by combining the two
-arms</td>
+<td>Predicting an off-arm cell by combining the two arms (earlier
+grid)</td>
 <td>errors around 0.20, consistently too optimistic</td>
 </tr>
 <tr class="even">
 <td>Interpolated vs freshly simulated, p = 150, n = 1000, JGL_BIC</td>
 <td>sensitivity 0.65 vs 0.65 (± 0.02)</td>
 </tr>
+<tr class="odd">
+<td>Unequal groups vs balanced groups at the harmonic-mean size</td>
+<td>not interchangeable: 0.61 vs 0.65 for JGL_BIC, 0.31 vs 0.39 for
+InvCov</td>
+</tr>
 </tbody>
 </table>
-<p>So on-arm interpolation is trustworthy, while combining arms to
-predict off-arm designs is not; howbig simulates those instead.</p>
+<p>So on-arm interpolation is trustworthy, while combining arms, or
+converting unequal groups to an “effective” balanced size, is not;
+<code>howbig</code> simulates those designs instead.</p>
 </div>
 <div class="section level2">
 <h2 id="on-demand-simulation">On-demand simulation<a class="anchor" aria-label="anchor" href="#on-demand-simulation"></a>
 </h2>
-<p><code><a href="../reference/simulate_power.html">simulate_power()</a></code> runs the pipeline above for any design,
-with the same network family as the shipped grid, so grid and simulated
-answers describe the same networks. It was checked by re-simulating grid
-cells:</p>
+<p><code><a href="../reference/simulate_power.html">simulate_power()</a></code> runs the pipeline above for any design
+in the default scenario, for the six methods whose packages it wraps,
+with the same network family as the grid. It was checked by
+re-simulating grid cells:</p>
 <table class="table">
 <thead><tr class="header">
 <th>Design</th>
@@ -379,13 +460,25 @@ cells:</p>
 <td>
 <code>InvCov</code>, p = 100, n = 1000</td>
 <td>0.49</td>
-<td>0.48</td>
+<td>0.49</td>
 </tr>
 <tr class="even">
 <td>
 <code>JGL_BIC</code>, p = 100, n = 1000</td>
 <td>0.70</td>
-<td>0.68 (± 0.02)</td>
+<td>0.70 (± 0.02)</td>
+</tr>
+<tr class="odd">
+<td>
+<code>InvCov</code>, p = 100, n = 500 / 1500</td>
+<td>0.32</td>
+<td>0.31</td>
+</tr>
+<tr class="even">
+<td>
+<code>JGL_BIC</code>, p = 100, n = 500 / 1500</td>
+<td>0.62</td>
+<td>0.61 (± 0.02)</td>
 </tr>
 </tbody>
 </table>
@@ -401,8 +494,8 @@ rather than forks. Forking after a multithreaded linear-algebra library
 (such as Apple Accelerate) has started can crash the workers.</li>
 <li>
 <strong>Runtime estimates</strong> come from a per-method regression
-of log fit time on log(p) and log(n), fit to the production timings. It
-predicts within about 30%.</li>
+of log fit time on log(p) and log(n), fit to the production
+timings.</li>
 </ul>
 </div>
 <div class="section level2">
@@ -410,10 +503,8 @@ predicts within about 30%.</li>
 </h2>
 <p>The simulation design, generators, and scoring are ported from the
 simulation study for the DiNA differential network analysis tutorial
-(manuscript in preparation). The shipped grid is the study’s interim
-Barabási-Albert <em>tree</em> family (mean degree ~1.9); it will be
-replaced by the scale-free family (mean degree ~3.8), matching the
-networks of Danaher et al. (2014).</p>
+(manuscript in preparation), whose main reporting family is the
+Barabási-Albert tree networks used as the default here.</p>
 <p>Danaher, P., Wang, P., &amp; Witten, D. M. (2014). The joint
 graphical lasso for inverse covariance estimation across multiple
 classes. <em>Journal of the Royal Statistical Society: Series B</em>,

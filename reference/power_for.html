@@ -62,6 +62,7 @@ calibrated in every regime.</p>
 <span>  <span class="va">method</span>,</span>
 <span>  perturbation <span class="op">=</span> <span class="st">"structural"</span>,</span>
 <span>  fdr <span class="op">=</span> <span class="va">.HOWBIG_FDR_TARGET</span>,</span>
+<span>  scenario <span class="op">=</span> <span class="st">"default"</span>,</span>
 <span>  simulate <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -77,17 +78,17 @@ calibrated in every regime.</p>
 
 <dt id="arg-n">n<a class="anchor" aria-label="anchor" href="#arg-n"></a></dt>
 <dd><p>Per-group sample size; a single number, or <code>c(n1, n2)</code> for
-unequal groups (always simulated).</p></dd>
+unequal groups. Group 1 is the reference group (its network is intact;
+group 2 carries the change), so order matters.</p></dd>
 
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
-<dd><p>Estimation method label. See <code><a href="howbig_coverage.html">howbig_coverage()</a></code> for the
-available methods.</p></dd>
+<dd><p>Estimation method label. See <code><a href="howbig_methods.html">howbig_methods()</a></code>.</p></dd>
 
 
 <dt id="arg-perturbation">perturbation<a class="anchor" aria-label="anchor" href="#arg-perturbation"></a></dt>
 <dd><p>Type of differential signal: <code>"structural"</code> (edges
-appear/disappear), <code>"magnitude"</code> (edge weights change), or <code>"both"</code>.</p></dd>
+appear/disappear), <code>"magnitude"</code> (edge strengths change), or <code>"both"</code>.</p></dd>
 
 
 <dt id="arg-fdr">fdr<a class="anchor" aria-label="anchor" href="#arg-fdr"></a></dt>
@@ -95,9 +96,22 @@ appear/disappear), <code>"magnitude"</code> (edge weights change), or <code>"bot
 other targets require simulation.</p></dd>
 
 
+<dt id="arg-scenario">scenario<a class="anchor" aria-label="anchor" href="#arg-scenario"></a></dt>
+<dd><p>Assumption about the networks and data, for checking how
+sensitive an answer is to them. <code>"default"</code> (block-structured
+Barabasi-Albert tree networks, Gaussian data, empirical edge weights) is
+the main grid. The others are in the grid only at p = 100, n = 1000 with
+a structural change: <code>"scale_free"</code> (denser Barabasi-Albert blocks),
+<code>"erdos_renyi"</code> (random blocks), <code>"ar1_banded"</code> (non-modular banded
+network), <code>"censored_5"</code>, <code>"censored_25"</code>, <code>"censored_50"</code> (that share
+of each feature's values set to zero, as at a detection limit), and
+<code>"uniform_weights"</code>.</p></dd>
+
+
 <dt id="arg-simulate">simulate<a class="anchor" aria-label="anchor" href="#arg-simulate"></a></dt>
 <dd><p>If <code>TRUE</code>, answer off-grid designs by on-demand
-simulation (slow). If <code>FALSE</code> (default), they are flagged instead.</p></dd>
+simulation (slow; default scenario and simulatable methods only). If
+<code>FALSE</code> (default), they are flagged instead.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -108,15 +122,16 @@ simulation (slow). If <code>FALSE</code> (default), they are flagged instead.</p
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An object of class <code>howbig_power</code>: a list with the sensitivity
-estimate and 80% band, achieved FDR, AUPR, provenance, and any notes.</p>
+estimate and 80% band, achieved FDR, AUPR, the number of truly
+differential edges, provenance, and any notes.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Answers come from a precomputed simulation grid where possible. Queries
 that hit a grid cell are exact; queries on a swept arm are interpolated.
-Anything else (other designs, unequal group sizes, FDR targets other than
-the grid's 0.05) is flagged <code>simulate_required</code>, and answered by an
-on-demand simulation when <code>simulate = TRUE</code> (see <code><a href="simulate_power.html">simulate_power()</a></code>).</p>
+Anything else (other designs, other unequal group sizes, FDR targets
+other than the grid's 0.05) is flagged <code>simulate_required</code>, and answered
+by an on-demand simulation when <code>simulate = TRUE</code> (see <code><a href="simulate_power.html">simulate_power()</a></code>).</p>
     </div>
 
     <div class="section level2">
@@ -124,17 +139,35 @@ on-demand simulation when <code>simulate = TRUE</code> (see <code><a href="simul
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">power_for</span><span class="op">(</span>p <span class="op">=</span> <span class="fl">250</span>, n <span class="op">=</span> <span class="fl">1000</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> howbig power estimate  [in-grid]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   JGL_BIC | structural perturbation | p = 250, n = 1000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Truly differential edges: ~50 of 31,125 pairs (0.16%)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Sensitivity @ FDR 0.05:  0.60   (80% band 0.50–0.70)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Achieved FDR:            0.059 ✓</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   AUPR (threshold-free):   0.68</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   based on 100 reps</span>
-<span class="r-in"><span><span class="fu">power_for</span><span class="op">(</span>p <span class="op">=</span> <span class="fl">250</span>, n <span class="op">=</span> <span class="fl">1500</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span>   <span class="co"># interpolated</span></span></span>
+<span class="r-in"><span><span class="fu">power_for</span><span class="op">(</span>p <span class="op">=</span> <span class="fl">250</span>, n <span class="op">=</span> <span class="fl">1500</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span>          <span class="co"># interpolated</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> howbig power estimate  [interpolated]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   JGL_BIC | structural perturbation | p = 250, n = 1500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Truly differential edges: ~50 of 31,125 pairs (0.16%)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Sensitivity @ FDR 0.05:  0.66   (80% band 0.56–0.77)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Achieved FDR:            0.063 ✓</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   AUPR (threshold-free):   0.73</span>
-<span class="r-in"><span><span class="fu">power_for</span><span class="op">(</span>p <span class="op">=</span> <span class="fl">150</span>, n <span class="op">=</span> <span class="fl">1500</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span>   <span class="co"># off-grid: flagged</span></span></span>
+<span class="r-in"><span><span class="fu">power_for</span><span class="op">(</span>p <span class="op">=</span> <span class="fl">100</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">500</span>, <span class="fl">1500</span><span class="op">)</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span>  <span class="co"># unequal groups</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> howbig power estimate  [in-grid]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   JGL_BIC | structural perturbation | p = 100, n = 500 / 1500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Truly differential edges: ~45 of 4,950 pairs (0.92%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Sensitivity @ FDR 0.05:  0.62   (80% band 0.51–0.75)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Achieved FDR:            0.047 ✓</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AUPR (threshold-free):   0.75</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   based on 100 reps</span>
+<span class="r-in"><span><span class="fu">power_for</span><span class="op">(</span>p <span class="op">=</span> <span class="fl">100</span>, n <span class="op">=</span> <span class="fl">1000</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span>, scenario <span class="op">=</span> <span class="st">"censored_25"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> howbig power estimate  [in-grid]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   JGL_BIC | structural perturbation | p = 100, n = 1000 | scenario: censored_25</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Truly differential edges: ~45 of 4,950 pairs (0.92%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Sensitivity @ FDR 0.05:  0.65   (80% band 0.53–0.76)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Achieved FDR:            0.092 ✓</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AUPR (threshold-free):   0.75</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   based on 100 reps</span>
+<span class="r-in"><span><span class="fu">power_for</span><span class="op">(</span>p <span class="op">=</span> <span class="fl">150</span>, n <span class="op">=</span> <span class="fl">1500</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span>          <span class="co"># off-grid: flagged</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> howbig power estimate  [OFF-GRID]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   JGL_BIC | structural perturbation | p = 150, n = 1500</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Not available from the grid.</span>

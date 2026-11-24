@@ -58,14 +58,14 @@
 <!-- badges: start -->
 
 <p><strong>How big a sample do you need to find what changed in a network?</strong></p>
-<p>howbig gives power and sample-size calculations for differential network analysis: comparing two groups’ Gaussian graphical models to find the edges that differ. It is a network-native, method-aware analogue to <a href="https://cran.r-project.org/package=pwr" class="external-link">pwr</a>.</p>
-<p>Its answers are empirical. They come from a large simulation study that ran seven estimation methods across sample sizes, feature counts, and kinds of differential signal, plus an on-demand simulator for designs the study didn’t cover. That evidence shows things a formula would hide:</p>
+<p><code>howbig</code> gives power and sample-size calculations for differential network analysis: comparing two or more groups’ estimated graphical models to find the edges that differ. It is a network-native, method-aware analogue to <a href="https://cran.r-project.org/package=pwr" class="external-link">pwr</a>.</p>
+<p>Its answers are empirical. They come from a large simulation study of differential network methods across sample sizes, feature counts, kinds of differential signal, and assumptions about the networks and data, plus an on-demand simulator for designs the study didn’t cover. <code>howbig</code> includes the nine methods from that study whose FDR-controlled calls could be scored. That evidence shows things a formula would hide:</p>
 <ul>
 <li>
 <strong>Required sample sizes are large.</strong> With 250 features, the joint graphical lasso needs roughly 4,500 samples per group to recover 80% of the differential edges.</li>
 <li><strong>Method choice matters, and no method wins everywhere.</strong></li>
 <li>
-<strong>Some methods lose FDR control under some kinds of signal.</strong> howbig reports the false discovery rate a method actually achieves, next to its power, so that assumption is visible.</li>
+<strong>Some methods lose FDR control under some kinds of signal.</strong> <code>howbig</code> reports the false discovery rate a method actually achieves, next to its power, so that assumption is visible.</li>
 </ul>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -84,25 +84,45 @@
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">power_for</span>(<span class="at">p =</span> <span class="dv">250</span>, <span class="at">n =</span> <span class="dv">1000</span>, <span class="at">method =</span> <span class="st">"JGL_BIC"</span>)</span>
 <span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt; howbig power estimate  [in-grid]</span></span>
 <span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 250, n = 1000</span></span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.60   (80% band 0.50–0.70)</span></span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt;   Achieved FDR:            0.059 ✓</span></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt;   AUPR (threshold-free):   0.68</span></span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;   based on 100 reps</span></span></code></pre></div>
-<p><em>Power</em> here is <strong>sensitivity</strong>: the fraction of truly differential edges detected while controlling the false discovery rate at 5%. To go the other way, ask for the sample size that reaches a target power:</p>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt;   Truly differential edges: ~50 of 31,125 pairs (0.16%)</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.60   (80% band 0.50–0.70)</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt;   Achieved FDR:            0.059 ✓</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;   AUPR (threshold-free):   0.68</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt;   based on 100 reps</span></span></code></pre></div>
+<p>The first result line shows how few edges actually differ: about 50 of 31,125 feature pairs in the simulated networks. <em>Power</em> is <strong>sensitivity</strong>: the fraction of those truly differential edges detected while controlling the false discovery rate at 5%. To go the other way, ask for the sample size that reaches a target power:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">n_for</span>(<span class="at">p =</span> <span class="dv">250</span>, <span class="at">power =</span> <span class="fl">0.8</span>, <span class="at">method =</span> <span class="st">"JGL_BIC"</span>)</span>
 <span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt; howbig sample-size estimate  [interpolated]</span></span>
 <span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 250 | target power = 0.80 @ FDR 0.05</span></span>
 <span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt;   Required per-group n:  4512</span></span></code></pre></div>
-<p>If you expect edge <strong>strengths</strong> to change rather than edges to appear or disappear, the picture changes. This method stops controlling its false discovery rate:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">power_for</span>(<span class="at">p =</span> <span class="dv">250</span>, <span class="at">n =</span> <span class="dv">1000</span>, <span class="at">method =</span> <span class="st">"JGL_BIC"</span>, <span class="at">perturbation =</span> <span class="st">"magnitude"</span>)</span>
+<p>If you expect edge <strong>strengths</strong> to change rather than edges to appear or disappear, the picture changes. This method stops controlling its false discovery rate: about one in six of its calls is wrong.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">power_for</span>(<span class="at">p =</span> <span class="dv">100</span>, <span class="at">n =</span> <span class="dv">1000</span>, <span class="at">method =</span> <span class="st">"JGL_BIC"</span>, <span class="at">perturbation =</span> <span class="st">"magnitude"</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt; howbig power estimate  [in-grid]</span></span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt;   JGL_BIC | magnitude perturbation | p = 250, n = 1000</span></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.52   (80% band 0.33–0.71)</span></span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt;   Achieved FDR:            0.237 ⚠</span></span>
-<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt;   AUPR (threshold-free):   0.60</span></span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt;   based on 100 reps</span></span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; note: achieved FDR 0.24 exceeds target 0.05 — this method is not</span></span>
-<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt;         calibrated here.</span></span></code></pre></div>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt;   JGL_BIC | magnitude perturbation | p = 100, n = 1000</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt;   Truly differential edges: ~24 of 4,950 pairs (0.48%)</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.64   (80% band 0.37–0.84)</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt;   Achieved FDR:            0.168 ⚠</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt;   AUPR (threshold-free):   0.74</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt;   based on 100 reps</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; note: achieved FDR 0.17 exceeds target 0.05 — this method is not</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt;         calibrated here.</span></span></code></pre></div>
+<p>Unequal group sizes, and other assumptions about the networks and data, are in the grid at p = 100, n = 1000 per group on average:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">power_for</span>(<span class="at">p =</span> <span class="dv">100</span>, <span class="at">n =</span> <span class="fu">c</span>(<span class="dv">500</span>, <span class="dv">1500</span>), <span class="at">method =</span> <span class="st">"JGL_BIC"</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#&gt; howbig power estimate  [in-grid]</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 100, n = 500 / 1500</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;   Truly differential edges: ~45 of 4,950 pairs (0.92%)</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.62   (80% band 0.51–0.75)</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt;   Achieved FDR:            0.047 ✓</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt;   AUPR (threshold-free):   0.75</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt;   based on 100 reps</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="fu">power_for</span>(<span class="at">p =</span> <span class="dv">100</span>, <span class="at">n =</span> <span class="dv">1000</span>, <span class="at">method =</span> <span class="st">"JGL_BIC"</span>, <span class="at">scenario =</span> <span class="st">"censored_25"</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; howbig power estimate  [in-grid]</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 100, n = 1000 | scenario: censored_25</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt;   Truly differential edges: ~45 of 4,950 pairs (0.92%)</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.65   (80% band 0.53–0.76)</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt;   Achieved FDR:            0.092 ✓</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt;   AUPR (threshold-free):   0.75</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt;   based on 100 reps</span></span></code></pre></div>
+<p><code><a href="reference/howbig_methods.html">howbig_methods()</a></code> lists the nine methods and which ones can be simulated.</p>
 </div>
 <div class="section level2">
 <h2 id="how-answers-are-produced">How answers are produced<a class="anchor" aria-label="anchor" href="#how-answers-are-produced"></a>
@@ -137,21 +157,21 @@
 </tr>
 <tr>
 <td><code>OFF-GRID</code></td>
-<td>Not answerable from the grid; howbig says why</td>
+<td>Not answerable from the grid; <code>howbig</code> says why</td>
 <td>-</td>
 </tr>
 </tbody>
 </table>
 <p>Designs the grid doesn’t cover are flagged, not guessed:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">power_for</span>(<span class="at">p =</span> <span class="dv">150</span>, <span class="at">n =</span> <span class="dv">1500</span>, <span class="at">method =</span> <span class="st">"JGL_BIC"</span>)</span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#&gt; howbig power estimate  [OFF-GRID]</span></span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 150, n = 1500</span></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;   Not available from the grid.</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt; note: not answerable from the grid: (p = 150, n = 1500) is off the grid</span></span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt;         for the structural perturbation.</span></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; note: rerun with simulate = TRUE to simulate this design (slow; see</span></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt;         ?simulate_power).</span></span></code></pre></div>
-<p>Rerunning with <code>simulate = TRUE</code> simulates that design, as do unequal group sizes (<code>n = c(600, 1400)</code>) and FDR targets other than 5%. Each simulation estimates its runtime before it starts and refuses to start runs longer than <code>max_minutes</code>.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">power_for</span>(<span class="at">p =</span> <span class="dv">150</span>, <span class="at">n =</span> <span class="dv">1500</span>, <span class="at">method =</span> <span class="st">"JGL_BIC"</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; howbig power estimate  [OFF-GRID]</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 150, n = 1500</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt;   Not available from the grid.</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; note: not answerable from the grid: (p = 150, n = 1500) is off the grid</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt;         for the structural perturbation.</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; note: rerun with simulate = TRUE to simulate this design (slow; see</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt;         ?simulate_power).</span></span></code></pre></div>
+<p>Rerunning with <code>simulate = TRUE</code> simulates that design, as do other unequal group sizes and FDR targets other than 5%. Each simulation estimates its runtime before it starts and refuses to start runs longer than <code>max_minutes</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="learn-more">Learn more<a class="anchor" aria-label="anchor" href="#learn-more"></a>
@@ -160,13 +180,8 @@
 <li>
 <a href="https://mljaniczek.github.io/howbig/articles/howbig.html">Get started</a>: a walkthrough of power, sample size, and simulation.</li>
 <li>
-<a href="https://mljaniczek.github.io/howbig/articles/methodology.html">Methodology</a>: how the networks are generated, how each method is scored, and how howbig was validated.</li>
+<a href="https://mljaniczek.github.io/howbig/articles/methodology.html">Methodology</a>: how the networks are generated, how each method is scored, and how <code>howbig</code> was validated.</li>
 </ul>
-</div>
-<div class="section level2">
-<h2 id="status">Status<a class="anchor" aria-label="anchor" href="#status"></a>
-</h2>
-<p>howbig is experimental. The grid it ships with is <strong>interim</strong>: it was simulated on Barabási-Albert <em>tree</em> networks. It will be replaced by a grid on denser scale-free networks (mean degree ~3.8, matching Danaher et al. 2014), and numbers will shift when that lands.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

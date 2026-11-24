@@ -43,8 +43,10 @@
 <code><a href="../reference/power_for.html">power_for()</a></code> and <code><a href="../reference/n_for.html">n_for()</a></code> answer power and sample-size questions from a precomputed simulation grid, interpolating along its swept axes.</li>
 <li>
 <code><a href="../reference/simulate_power.html">simulate_power()</a></code> simulates designs the grid does not cover: any number of features, unequal group sizes, and any FDR target. It estimates runtime before starting and refuses runs longer than <code>max_minutes</code>.</li>
-<li>Every answer reports how it was produced (in-grid, interpolated, simulated, or off-grid) and flags methods that miss their FDR target.</li>
-<li>The shipped grid is interim (Barabási-Albert tree networks) and will be replaced by the scale-free family.</li>
+<li>Every answer reports how it was produced (in-grid, interpolated, simulated, or off-grid), how many edges truly differ, and flags methods that miss their FDR target.</li>
+<li>The grid comes from the November 2026 production run on Barabási-Albert tree networks: nine methods (<code><a href="../reference/howbig_methods.html">howbig_methods()</a></code>), a sample-size arm down to n = 100, small-sample cells at p = 100, and an anchor (p = 100, n = 1000) with all perturbation types and unequal groups (500 / 1500).</li>
+<li>New <code>scenario</code> argument: check an answer at the anchor under other assumptions (denser, random, or banded networks; censoring at a detection limit; uniform edge weights).</li>
+<li>multiGGM simulations now call differential edges with the grid’s magnitude rule, P(|Θ₁ − Θ₂| &gt; 0.1).</li>
 </ul></div>
   </main></div>
 

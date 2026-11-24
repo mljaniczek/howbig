@@ -72,21 +72,22 @@
 </h2>
 <p>Differential network analysis compares two or more groups (say, cases
 and controls) and asks which edges in a graphical model differ between
-them. howbig answers the planning question that comes first: <strong>how
-many samples do I need to find those edges?</strong></p>
+them. <code>howbig</code> answers the planning question that comes
+first: <strong>how many samples do I need to find those
+edges?</strong></p>
 <div class="section level3">
 <h3 id="what-power-means-here">What “power” means here<a class="anchor" aria-label="anchor" href="#what-power-means-here"></a>
 </h3>
 <p>In a differential network, almost every possible edge is <em>not</em>
 differential. With 500 features there are about 125,000 feature pairs,
-and in the simulations behind howbig only around 50 of them differ. A
-method that calls nothing differential still has a false positive rate
-near zero, so FPR-based summaries say little.</p>
-<p>howbig defines <strong>power as sensitivity</strong>: the fraction of
-truly differential edges a method detects while controlling the false
-discovery rate (FDR) at a target, 5% by default. It always reports the
-FDR the method <strong>actually achieved</strong> next to it, because
-not every method controls FDR in every setting.</p>
+and in the simulations behind <code>howbig</code> only around 50 of them
+differ. A method that calls nothing differential still has a false
+positive rate near zero, so FPR-based summaries say little.</p>
+<p><code>howbig</code> defines <strong>power as sensitivity</strong>:
+the fraction of truly differential edges a method detects while
+controlling the false discovery rate (FDR) at a target, 5% by default.
+It always reports the FDR the method <strong>actually achieved</strong>
+next to it, because not every method controls FDR in every setting.</p>
 </div>
 </div>
 <div class="section level2">
@@ -112,7 +113,7 @@ not every method controls FDR in every setting.</p>
 <tr class="even">
 <td>Samples per group</td>
 <td><code>n</code></td>
-<td>A budget range</td>
+<td>A budget range; <code>c(n1, n2)</code> for unequal groups</td>
 </tr>
 <tr class="odd">
 <td>Kind of change</td>
@@ -132,17 +133,41 @@ not every method controls FDR in every setting.</p>
 <td><code>method</code></td>
 <td>The method you plan to use</td>
 </tr>
+<tr class="even">
+<td>Assumptions</td>
+<td><code>scenario</code></td>
+<td>Optional: network shape and data quality, for checking how much they
+matter</td>
+</tr>
 </tbody>
 </table>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="fu"><a href="../reference/howbig_coverage.html">howbig_coverage</a></span><span class="op">(</span><span class="op">)</span><span class="op">$</span><span class="va">method</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "InvCov"      "JGL_BIC"     "JGL_BIC_GGL" "JRF"         "multiGGM"   </span></span>
-<span><span class="co">#&gt; [6] "SSJGL"       "SSJGL_GGL"</span></span></code></pre></div>
-<p><code>JGL_*</code> is the joint graphical lasso (<code>_GGL</code> =
-group penalty, otherwise fused), <code>SSJGL_*</code> its spike-and-slab
-version, <code>multiGGM</code> a Bayesian joint GGM, <code>JRF</code>
-joint random forests, and <code>InvCov</code> an unregularized baseline.
-All were tuned the way they were in the simulation study; see the <a href="methodology.html">methodology article</a>.</p>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/howbig_methods.html">howbig_methods</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        method                                               description</span></span>
+<span><span class="co">#&gt; 1     JGL_BIC           Joint graphical lasso, fused penalty, BIC-tuned</span></span>
+<span><span class="co">#&gt; 2 JGL_BIC_GGL           Joint graphical lasso, group penalty, BIC-tuned</span></span>
+<span><span class="co">#&gt; 3       SSJGL       Spike-and-slab joint graphical lasso, fused penalty</span></span>
+<span><span class="co">#&gt; 4   SSJGL_GGL       Spike-and-slab joint graphical lasso, group penalty</span></span>
+<span><span class="co">#&gt; 5    multiGGM Bayesian joint GGM (stochastic search variable selection)</span></span>
+<span><span class="co">#&gt; 6      InvCov               Unregularized inverse covariance (baseline)</span></span>
+<span><span class="co">#&gt; 7        mGHS                     Bayesian multiple graphical horseshoe</span></span>
+<span><span class="co">#&gt; 8  DiffNetFDR          Partial-correlation difference test (DiffNetFDR)</span></span>
+<span><span class="co">#&gt; 9       ONDSA        Debiased (FastGGM-based) differential network test</span></span>
+<span><span class="co">#&gt;                inference simulate</span></span>
+<span><span class="co">#&gt; 1  permutation null + BH     TRUE</span></span>
+<span><span class="co">#&gt; 2  permutation null + BH     TRUE</span></span>
+<span><span class="co">#&gt; 3  permutation null + BH     TRUE</span></span>
+<span><span class="co">#&gt; 4  permutation null + BH     TRUE</span></span>
+<span><span class="co">#&gt; 5          posterior FDR     TRUE</span></span>
+<span><span class="co">#&gt; 6  permutation null + BH     TRUE</span></span>
+<span><span class="co">#&gt; 7          posterior FDR    FALSE</span></span>
+<span><span class="co">#&gt; 8 built-in FDR procedure    FALSE</span></span>
+<span><span class="co">#&gt; 9 built-in FDR procedure    FALSE</span></span></code></pre></div>
+<p>All methods were tuned the way they were in the simulation study; see
+the <a href="methodology.html">methodology article</a>. Six of them can
+also be simulated for designs the grid does not cover;
+<code>mGHS</code>, <code>DiffNetFDR</code> and <code>ONDSA</code> are
+available from the grid only.</p>
 </div>
 <div class="section level2">
 <h2 id="power-for-a-design">Power for a design<a class="anchor" aria-label="anchor" href="#power-for-a-design"></a>
@@ -151,12 +176,17 @@ All were tuned the way they were in the simulation study; see the <a href="metho
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/power_for.html">power_for</a></span><span class="op">(</span>p <span class="op">=</span> <span class="fl">250</span>, n <span class="op">=</span> <span class="fl">1000</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; howbig power estimate  [in-grid]</span></span>
 <span><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 250, n = 1000</span></span>
+<span><span class="co">#&gt;   Truly differential edges: ~50 of 31,125 pairs (0.16%)</span></span>
 <span><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.60   (80% band 0.50–0.70)</span></span>
 <span><span class="co">#&gt;   Achieved FDR:            0.059 ✓</span></span>
 <span><span class="co">#&gt;   AUPR (threshold-free):   0.68</span></span>
 <span><span class="co">#&gt;   based on 100 reps</span></span></code></pre></div>
 <p>The output reads:</p>
 <ul>
+<li>
+<strong>Truly differential edges</strong>: how many edges differ
+between the groups in the simulated networks, out of all feature pairs.
+Power is measured against these.</li>
 <li>
 <strong>Sensitivity @ FDR 0.05</strong>: mean power across simulated
 replicates, with the 10th-90th percentile band. The band shows how much
@@ -174,17 +204,18 @@ separates differential edges from the rest.</li>
 <h3 id="calibration-is-part-of-the-answer">Calibration is part of the answer<a class="anchor" aria-label="anchor" href="#calibration-is-part-of-the-answer"></a>
 </h3>
 <p>Change the kind of signal to a pure strength change and the same
-method misses its FDR target badly. Its sensitivity looks respectable,
-but almost a quarter of what it calls differential is not:</p>
+method misses its FDR target. Its sensitivity looks respectable, but
+about one in six of the edges it calls differential are not:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/power_for.html">power_for</a></span><span class="op">(</span>p <span class="op">=</span> <span class="fl">250</span>, n <span class="op">=</span> <span class="fl">1000</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span>, perturbation <span class="op">=</span> <span class="st">"magnitude"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/power_for.html">power_for</a></span><span class="op">(</span>p <span class="op">=</span> <span class="fl">100</span>, n <span class="op">=</span> <span class="fl">1000</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span>, perturbation <span class="op">=</span> <span class="st">"magnitude"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; howbig power estimate  [in-grid]</span></span>
-<span><span class="co">#&gt;   JGL_BIC | magnitude perturbation | p = 250, n = 1000</span></span>
-<span><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.52   (80% band 0.33–0.71)</span></span>
-<span><span class="co">#&gt;   Achieved FDR:            0.237 ⚠</span></span>
-<span><span class="co">#&gt;   AUPR (threshold-free):   0.60</span></span>
+<span><span class="co">#&gt;   JGL_BIC | magnitude perturbation | p = 100, n = 1000</span></span>
+<span><span class="co">#&gt;   Truly differential edges: ~24 of 4,950 pairs (0.48%)</span></span>
+<span><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.64   (80% band 0.37–0.84)</span></span>
+<span><span class="co">#&gt;   Achieved FDR:            0.168 ⚠</span></span>
+<span><span class="co">#&gt;   AUPR (threshold-free):   0.74</span></span>
 <span><span class="co">#&gt;   based on 100 reps</span></span>
-<span><span class="co">#&gt; note: achieved FDR 0.24 exceeds target 0.05 — this method is not</span></span>
+<span><span class="co">#&gt; note: achieved FDR 0.17 exceeds target 0.05 — this method is not</span></span>
 <span><span class="co">#&gt;         calibrated here.</span></span></code></pre></div>
 </div>
 </div>
@@ -198,13 +229,17 @@ but almost a quarter of what it calls differential is not:</p>
 <span><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 250 | target power = 0.80 @ FDR 0.05</span></span>
 <span><span class="co">#&gt;   Required per-group n:  4512</span></span></code></pre></div>
 <p>The curves behind that answer show how slowly power grows with sample
-size, and that methods plateau at different levels:</p>
-<p><img src="howbig_files/figure-html/power-curves-1.png" class="r-plt" alt="Line chart of sensitivity at FDR 0.05 against per-group sample size (log scale, 250 to 5000) at p = 250, for five methods. JGL_BIC rises from 0.28 to 0.81, SSJGL from 0.26 to 0.73, InvCov from 0.01 to 0.69, multiGGM plateaus near 0.43, and JRF reaches 0.40 at n = 1000. A dashed line marks the 0.8 target, which only JGL_BIC crosses, near n = 4500." width="100%"></p>
-<p>The same numbers as a table:</p>
+size, and that no method is best everywhere. The Bayesian methods
+(<code>multiGGM</code>, and <code>mGHS</code>, which tracks it closely)
+lead at small samples but level off near 0.6; the joint graphical lasso
+overtakes them from about n = 1000.</p>
+<p><img src="howbig_files/figure-html/power-curves-1.png" class="r-plt" alt="Line chart of sensitivity at FDR 0.05 against per-group sample size (log scale, 100 to 5000) at p = 250, for five methods. multiGGM starts highest at 0.30 for n = 100 but levels off near 0.63. JGL_BIC rises from 0.08 to 0.81, crossing multiGGM near n = 1000. SSJGL rises from 0.08 to 0.73, DiffNetFDR from 0.05 to 0.71, and InvCov from 0 to 0.69. A dashed line marks the 0.8 target, which only JGL_BIC crosses, near n = 4500." width="100%"></p>
+<p>The same numbers as a table, for all nine methods:</p>
 <table class="table">
 <caption>Sensitivity at FDR 0.05, p = 250, structural change</caption>
 <thead><tr class="header">
 <th align="left"></th>
+<th align="right">n = 100</th>
 <th align="right">n = 250</th>
 <th align="right">n = 500</th>
 <th align="right">n = 1000</th>
@@ -213,7 +248,26 @@ size, and that methods plateau at different levels:</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
+<td align="left">DiffNetFDR</td>
+<td align="right">0.05</td>
+<td align="right">0.17</td>
+<td align="right">0.29</td>
+<td align="right">0.44</td>
+<td align="right">0.56</td>
+<td align="right">0.71</td>
+</tr>
+<tr class="even">
+<td align="left">InvCov</td>
+<td align="right">0.00</td>
+<td align="right">0.01</td>
+<td align="right">0.07</td>
+<td align="right">0.33</td>
+<td align="right">0.51</td>
+<td align="right">0.69</td>
+</tr>
+<tr class="odd">
 <td align="left">JGL_BIC</td>
+<td align="right">0.08</td>
 <td align="right">0.28</td>
 <td align="right">0.42</td>
 <td align="right">0.60</td>
@@ -221,7 +275,44 @@ size, and that methods plateau at different levels:</p>
 <td align="right">0.81</td>
 </tr>
 <tr class="even">
+<td align="left">JGL_BIC_GGL</td>
+<td align="right">0.04</td>
+<td align="right">0.25</td>
+<td align="right">0.37</td>
+<td align="right">0.55</td>
+<td align="right">0.65</td>
+<td align="right">0.79</td>
+</tr>
+<tr class="odd">
+<td align="left">mGHS</td>
+<td align="right">0.25</td>
+<td align="right">0.41</td>
+<td align="right">0.48</td>
+<td align="right">0.57</td>
+<td align="right">0.60</td>
+<td align="right">0.62</td>
+</tr>
+<tr class="even">
+<td align="left">multiGGM</td>
+<td align="right">0.30</td>
+<td align="right">0.40</td>
+<td align="right">0.49</td>
+<td align="right">0.58</td>
+<td align="right">0.61</td>
+<td align="right">0.63</td>
+</tr>
+<tr class="odd">
+<td align="left">ONDSA</td>
+<td align="right">0.02</td>
+<td align="right">0.15</td>
+<td align="right">0.26</td>
+<td align="right">0.43</td>
+<td align="right">0.56</td>
+<td align="right">0.71</td>
+</tr>
+<tr class="even">
 <td align="left">SSJGL</td>
+<td align="right">0.08</td>
 <td align="right">0.26</td>
 <td align="right">0.37</td>
 <td align="right">0.52</td>
@@ -229,54 +320,40 @@ size, and that methods plateau at different levels:</p>
 <td align="right">0.73</td>
 </tr>
 <tr class="odd">
-<td align="left">multiGGM</td>
-<td align="right">0.24</td>
-<td align="right">0.32</td>
-<td align="right">0.39</td>
-<td align="right">0.42</td>
-<td align="right">0.43</td>
-</tr>
-<tr class="even">
-<td align="left">JRF</td>
-<td align="right">0.14</td>
-<td align="right">0.28</td>
-<td align="right">0.40</td>
-<td align="right">—</td>
-<td align="right">—</td>
-</tr>
-<tr class="odd">
-<td align="left">InvCov</td>
-<td align="right">0.01</td>
-<td align="right">0.07</td>
-<td align="right">0.33</td>
-<td align="right">0.51</td>
-<td align="right">0.69</td>
+<td align="left">SSJGL_GGL</td>
+<td align="right">0.03</td>
+<td align="right">0.23</td>
+<td align="right">0.35</td>
+<td align="right">0.52</td>
+<td align="right">0.62</td>
+<td align="right">0.74</td>
 </tr>
 </tbody>
 </table>
-<p>The group-penalty variants (<code>JGL_BIC_GGL</code>,
-<code>SSJGL_GGL</code>) closely track their fused counterparts and are
-omitted from the figure.</p>
 </div>
 <div class="section level2">
-<h2 id="when-the-grid-cant-answer">When the grid can’t answer<a class="anchor" aria-label="anchor" href="#when-the-grid-cant-answer"></a>
+<h2 id="where-the-grid-has-answers">Where the grid has answers<a class="anchor" aria-label="anchor" href="#where-the-grid-has-answers"></a>
 </h2>
 <p>The grid covers two <strong>arms</strong> that cross at p = 250, n =
 1000: sample size varies at p = 250, and feature count varies at n =
-1000. A few extra cells sit off the arms.</p>
-<p><img src="howbig_files/figure-html/coverage-1.png" class="r-plt" alt="Scatter plot of grid coverage, feature count p against samples per group n on a log scale. Points form a cross: a vertical arm at p = 250 for n from 250 to 5000, and a horizontal arm at n = 1000 for p from 50 to 500, meeting at p = 250, n = 1000. One extra cell sits at p = 125, n = 100." width="100%"></p>
+1000. At p = 100 there are also small-sample cells (n = 50 and 100) and
+an <strong>anchor</strong> at n = 1000 that carries everything else: the
+three perturbation types, unequal groups (500 / 1500), and the
+assumption scenarios.</p>
+<p><img src="howbig_files/figure-html/coverage-1.png" class="r-plt" alt="Scatter plot of grid coverage, feature count p against samples per group n on a log scale. Points form a cross: a vertical arm at p = 250 for n from 100 to 5000, and a horizontal arm at n = 1000 for p from 50 to 500, meeting at p = 250, n = 1000. At p = 100 there are extra cells at n = 50 and n = 100, and the anchor at p = 100, n = 1000 is ringed: it holds the perturbation types, unequal groups and assumption scenarios." width="100%"></p>
 <p>A query <strong>on an arm</strong> between grid points is
 interpolated:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/power_for.html">power_for</a></span><span class="op">(</span>p <span class="op">=</span> <span class="fl">150</span>, n <span class="op">=</span> <span class="fl">1000</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; howbig power estimate  [interpolated]</span></span>
 <span><span class="co">#&gt;   JGL_BIC | structural perturbation | p = 150, n = 1000</span></span>
+<span><span class="co">#&gt;   Truly differential edges: ~47 of 11,175 pairs (0.42%)</span></span>
 <span><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.65   (80% band 0.54–0.77)</span></span>
 <span><span class="co">#&gt;   Achieved FDR:            0.041 ✓</span></span>
-<span><span class="co">#&gt;   AUPR (threshold-free):   0.75</span></span></code></pre></div>
+<span><span class="co">#&gt;   AUPR (threshold-free):   0.76</span></span></code></pre></div>
 <p>Interpolation stays on the arms because that is where it has been
 validated: re-simulating this design gives the same 0.65. Anywhere else,
-howbig declines to guess and says why:</p>
+<code>howbig</code> declines to guess and says why:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/power_for.html">power_for</a></span><span class="op">(</span>p <span class="op">=</span> <span class="fl">150</span>, n <span class="op">=</span> <span class="fl">1500</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; howbig power estimate  [OFF-GRID]</span></span>
@@ -286,8 +363,122 @@ howbig declines to guess and says why:</p>
 <span><span class="co">#&gt;         for the structural perturbation.</span></span>
 <span><span class="co">#&gt; note: rerun with simulate = TRUE to simulate this design (slow; see</span></span>
 <span><span class="co">#&gt;         ?simulate_power).</span></span></code></pre></div>
-<p>The same happens for unequal group sizes and for FDR targets other
-than 0.05.</p>
+<p>The same happens for unequal group sizes other than the gridded 500 /
+1500 (in that order: group 1 is the reference group) and for FDR targets
+other than 0.05.</p>
+</div>
+<div class="section level2">
+<h2 id="how-sensitive-is-the-answer-to-your-assumptions">How sensitive is the answer to your assumptions?<a class="anchor" aria-label="anchor" href="#how-sensitive-is-the-answer-to-your-assumptions"></a>
+</h2>
+<p>The default grid assumes block-structured, sparse networks with
+Gaussian data. The <code>scenario</code> argument shows how the answer
+at the anchor changes under other assumptions, for any method:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/power_for.html">power_for</a></span><span class="op">(</span>p <span class="op">=</span> <span class="fl">100</span>, n <span class="op">=</span> <span class="fl">1000</span>, method <span class="op">=</span> <span class="st">"multiGGM"</span>, scenario <span class="op">=</span> <span class="st">"censored_50"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; howbig power estimate  [in-grid]</span></span>
+<span><span class="co">#&gt;   multiGGM | structural perturbation | p = 100, n = 1000 | scenario: censored_50</span></span>
+<span><span class="co">#&gt;   Truly differential edges: ~45 of 4,950 pairs (0.92%)</span></span>
+<span><span class="co">#&gt;   Sensitivity @ FDR 0.05:  0.01   (80% band 0.00–0.03)</span></span>
+<span><span class="co">#&gt;   Achieved FDR:            0.000 ✓</span></span>
+<span><span class="co">#&gt;   AUPR (threshold-free):   0.61</span></span>
+<span><span class="co">#&gt;   based on 100 reps</span></span></code></pre></div>
+<p>Across methods, some assumptions matter a lot:</p>
+<table class="table">
+<caption>Sensitivity at FDR 0.05 by scenario (p = 100, n = 1000,
+structural change)</caption>
+<thead><tr class="header">
+<th align="left"></th>
+<th align="right">JGL_BIC</th>
+<th align="right">SSJGL</th>
+<th align="right">multiGGM</th>
+<th align="right">mGHS</th>
+<th align="right">DiffNetFDR</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">default</td>
+<td align="right">0.70</td>
+<td align="right">0.64</td>
+<td align="right">0.65</td>
+<td align="right">0.64</td>
+<td align="right">0.56</td>
+</tr>
+<tr class="even">
+<td align="left">uniform_weights</td>
+<td align="right">0.69</td>
+<td align="right">0.64</td>
+<td align="right">0.66</td>
+<td align="right">0.65</td>
+<td align="right">0.57</td>
+</tr>
+<tr class="odd">
+<td align="left">scale_free</td>
+<td align="right">0.55</td>
+<td align="right">0.51</td>
+<td align="right">0.50</td>
+<td align="right">0.48</td>
+<td align="right">0.41</td>
+</tr>
+<tr class="even">
+<td align="left">erdos_renyi</td>
+<td align="right">0.57</td>
+<td align="right">0.52</td>
+<td align="right">0.52</td>
+<td align="right">0.49</td>
+<td align="right">0.43</td>
+</tr>
+<tr class="odd">
+<td align="left">ar1_banded</td>
+<td align="right">0.11</td>
+<td align="right">0.06</td>
+<td align="right">0.07</td>
+<td align="right">0.03</td>
+<td align="right">0.05</td>
+</tr>
+<tr class="even">
+<td align="left">censored_5</td>
+<td align="right">0.68</td>
+<td align="right">0.60</td>
+<td align="right">0.56</td>
+<td align="right">0.54</td>
+<td align="right">0.53</td>
+</tr>
+<tr class="odd">
+<td align="left">censored_25</td>
+<td align="right">0.65</td>
+<td align="right">0.40</td>
+<td align="right">0.19</td>
+<td align="right">0.17</td>
+<td align="right">0.47</td>
+</tr>
+<tr class="even">
+<td align="left">censored_50</td>
+<td align="right">0.58</td>
+<td align="right">0.18</td>
+<td align="right">0.01</td>
+<td align="right">0.00</td>
+<td align="right">0.41</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>
+<strong>Censoring</strong> (a share of each feature’s values set to
+zero, as at a detection limit) is the biggest threat. At 50% the
+Bayesian methods find almost nothing, while the joint graphical lasso
+keeps most of its power.</li>
+<li>
+<strong>Denser or random network blocks</strong>
+(<code>scale_free</code>, <code>erdos_renyi</code>) cost every method
+roughly 0.1-0.2.</li>
+<li>
+<strong>Banded, non-modular networks</strong>
+(<code>ar1_banded</code>): no method recovers the differences, and the
+Bayesian methods also miss their FDR target there.</li>
+<li>
+<strong>Edge-weight distribution</strong>
+(<code>uniform_weights</code>) barely matters.</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="simulating-your-design">Simulating your design<a class="anchor" aria-label="anchor" href="#simulating-your-design"></a>
@@ -298,11 +489,12 @@ data the way the grid was built, fits the method, and scores its
 FDR-controlled calls against the truth. Here is a small run with unequal
 groups and a 10% FDR target. It uses the fast <code>InvCov</code>
 baseline and few replicates so this page builds quickly:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/simulate_power.html">simulate_power</a></span><span class="op">(</span>p <span class="op">=</span> <span class="fl">60</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">150</span>, <span class="fl">350</span><span class="op">)</span>, method <span class="op">=</span> <span class="st">"InvCov"</span>, fdr <span class="op">=</span> <span class="fl">0.10</span>,</span>
 <span>               reps <span class="op">=</span> <span class="fl">10</span>, n_perm <span class="op">=</span> <span class="fl">10</span>, seed <span class="op">=</span> <span class="fl">1</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; howbig power estimate  [simulated]</span></span>
 <span><span class="co">#&gt;   InvCov | structural perturbation | p = 60, n = 150 / 350</span></span>
+<span><span class="co">#&gt;   Truly differential edges: ~44 of 1,770 pairs (2.51%)</span></span>
 <span><span class="co">#&gt;   Sensitivity @ FDR 0.10:  0.04   (80% band 0.00–0.09)</span></span>
 <span><span class="co">#&gt;   Monte Carlo SE of mean:  0.018</span></span>
 <span><span class="co">#&gt;   Achieved FDR:            0.133 ✓</span></span>
@@ -310,7 +502,8 @@ baseline and few replicates so this page builds quickly:</p>
 <span><span class="co">#&gt;   based on 10 reps, 10-permutation null; 0.0 min</span></span></code></pre></div>
 <p>For real use, keep the defaults (<code>reps = 20</code>,
 <code>n_perm = 30</code>) or raise them, and watch the Monte Carlo SE:
-it is the uncertainty in the mean sensitivity.</p>
+it is the uncertainty in the mean sensitivity. Simulation uses the
+default scenario.</p>
 <div class="section level3">
 <h3 id="runtime">Runtime<a class="anchor" aria-label="anchor" href="#runtime"></a>
 </h3>
@@ -346,14 +539,8 @@ method:</p>
 <tr class="even">
 <td><code>multiGGM</code></td>
 <td>~4 min</td>
-<td>~1 hour</td>
-<td>—</td>
-</tr>
-<tr class="odd">
-<td><code>JRF</code></td>
-<td>~20 min</td>
-<td>~20-90 min</td>
-<td>—</td>
+<td>~45 min</td>
+<td>~7 hours</td>
 </tr>
 </tbody>
 </table>
@@ -362,7 +549,7 @@ method:</p>
 runtime and refuses to start if it exceeds <code>max_minutes</code> (60
 by default). Use <code>cores</code> to run fits in parallel worker
 processes:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/simulate_power.html">simulate_power</a></span><span class="op">(</span>p <span class="op">=</span> <span class="fl">150</span>, n <span class="op">=</span> <span class="fl">1500</span>, method <span class="op">=</span> <span class="st">"JGL_BIC"</span>, cores <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt; howbig: 50 JGL_BIC fits, estimated ~5 min on 4 core(s).</span></span></code></pre></div>
 <p>Simulated results are cached for the session, so asking again is
@@ -374,14 +561,13 @@ sample sizes, so it costs several simulations.</p>
 <h2 id="assumptions-to-keep-in-mind">Assumptions to keep in mind<a class="anchor" aria-label="anchor" href="#assumptions-to-keep-in-mind"></a>
 </h2>
 <ul>
-<li>Networks are block-structured and scale-free, with Gaussian data;
-signal is confined to one or two 25-feature blocks. Real biology may be
-harder or easier.</li>
+<li>Default networks are built from 25-feature blocks, each a sparse
+Barabási-Albert tree, with Gaussian data; signal is confined to one or
+two blocks. Real biology may be harder or easier; the scenarios above
+give a sense of how much.</li>
 <li>Methods use fixed tuning choices (BIC for JGL, a fixed prior ladder
-for SSJGL, fixed MCMC settings for multiGGM). Different choices could
-change power.</li>
-<li>The grid shipped now is interim (Barabási-Albert tree networks); it
-will be replaced by denser scale-free networks.</li>
+for SSJGL, fixed MCMC settings for the Bayesian methods). Different
+choices could change power.</li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

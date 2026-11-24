@@ -2,21 +2,23 @@
 
 **How big a sample do you need to find what changed in a network?**
 
-howbig gives power and sample-size calculations for differential network
-analysis: comparing two groups’ Gaussian graphical models to find the
-edges that differ. It is a network-native, method-aware analogue to
-[pwr](https://cran.r-project.org/package=pwr).
+`howbig` gives power and sample-size calculations for differential
+network analysis: comparing two or more groups’ estimated graphical
+models to find the edges that differ. It is a network-native,
+method-aware analogue to [pwr](https://cran.r-project.org/package=pwr).
 
-Its answers are empirical. They come from a large simulation study that
-ran seven estimation methods across sample sizes, feature counts, and
-kinds of differential signal, plus an on-demand simulator for designs
-the study didn’t cover. That evidence shows things a formula would hide:
+Its answers are empirical. They come from a large simulation study of
+differential network methods across sample sizes, feature counts, kinds
+of differential signal, and assumptions about the networks and data,
+plus an on-demand simulator for designs the study didn’t cover. `howbig`
+includes the nine methods from that study whose FDR-controlled calls
+could be scored. That evidence shows things a formula would hide:
 
 - **Required sample sizes are large.** With 250 features, the joint
   graphical lasso needs roughly 4,500 samples per group to recover 80%
   of the differential edges.
 - **Method choice matters, and no method wins everywhere.**
-- **Some methods lose FDR control under some kinds of signal.** howbig
+- **Some methods lose FDR control under some kinds of signal.** `howbig`
   reports the false discovery rate a method actually achieves, next to
   its power, so that assumption is visible.
 
@@ -47,15 +49,18 @@ library(howbig)
 power_for(p = 250, n = 1000, method = "JGL_BIC")
 #> howbig power estimate  [in-grid]
 #>   JGL_BIC | structural perturbation | p = 250, n = 1000
+#>   Truly differential edges: ~50 of 31,125 pairs (0.16%)
 #>   Sensitivity @ FDR 0.05:  0.60   (80% band 0.50–0.70)
 #>   Achieved FDR:            0.059 ✓
 #>   AUPR (threshold-free):   0.68
 #>   based on 100 reps
 ```
 
-*Power* here is **sensitivity**: the fraction of truly differential
-edges detected while controlling the false discovery rate at 5%. To go
-the other way, ask for the sample size that reaches a target power:
+The first result line shows how few edges actually differ: about 50 of
+31,125 feature pairs in the simulated networks. *Power* is
+**sensitivity**: the fraction of those truly differential edges detected
+while controlling the false discovery rate at 5%. To go the other way,
+ask for the sample size that reaches a target power:
 
 ``` R
 n_for(p = 250, power = 0.8, method = "JGL_BIC")
@@ -66,19 +71,45 @@ n_for(p = 250, power = 0.8, method = "JGL_BIC")
 
 If you expect edge **strengths** to change rather than edges to appear
 or disappear, the picture changes. This method stops controlling its
-false discovery rate:
+false discovery rate: about one in six of its calls is wrong.
 
 ``` R
-power_for(p = 250, n = 1000, method = "JGL_BIC", perturbation = "magnitude")
+power_for(p = 100, n = 1000, method = "JGL_BIC", perturbation = "magnitude")
 #> howbig power estimate  [in-grid]
-#>   JGL_BIC | magnitude perturbation | p = 250, n = 1000
-#>   Sensitivity @ FDR 0.05:  0.52   (80% band 0.33–0.71)
-#>   Achieved FDR:            0.237 ⚠
-#>   AUPR (threshold-free):   0.60
+#>   JGL_BIC | magnitude perturbation | p = 100, n = 1000
+#>   Truly differential edges: ~24 of 4,950 pairs (0.48%)
+#>   Sensitivity @ FDR 0.05:  0.64   (80% band 0.37–0.84)
+#>   Achieved FDR:            0.168 ⚠
+#>   AUPR (threshold-free):   0.74
 #>   based on 100 reps
-#> note: achieved FDR 0.24 exceeds target 0.05 — this method is not
+#> note: achieved FDR 0.17 exceeds target 0.05 — this method is not
 #>         calibrated here.
 ```
+
+Unequal group sizes, and other assumptions about the networks and data,
+are in the grid at p = 100, n = 1000 per group on average:
+
+``` R
+power_for(p = 100, n = c(500, 1500), method = "JGL_BIC")
+#> howbig power estimate  [in-grid]
+#>   JGL_BIC | structural perturbation | p = 100, n = 500 / 1500
+#>   Truly differential edges: ~45 of 4,950 pairs (0.92%)
+#>   Sensitivity @ FDR 0.05:  0.62   (80% band 0.51–0.75)
+#>   Achieved FDR:            0.047 ✓
+#>   AUPR (threshold-free):   0.75
+#>   based on 100 reps
+power_for(p = 100, n = 1000, method = "JGL_BIC", scenario = "censored_25")
+#> howbig power estimate  [in-grid]
+#>   JGL_BIC | structural perturbation | p = 100, n = 1000 | scenario: censored_25
+#>   Truly differential edges: ~45 of 4,950 pairs (0.92%)
+#>   Sensitivity @ FDR 0.05:  0.65   (80% band 0.53–0.76)
+#>   Achieved FDR:            0.092 ✓
+#>   AUPR (threshold-free):   0.75
+#>   based on 100 reps
+```
+
+[`howbig_methods()`](https://mljaniczek.github.io/howbig/reference/howbig_methods.md)
+lists the nine methods and which ones can be simulated.
 
 ## How answers are produced
 
@@ -89,7 +120,7 @@ Every answer states where it came from:
 | `in-grid` | A precomputed simulation cell (typically 100 replicates) | instant |
 | `interpolated` | Between grid cells along a swept axis | instant |
 | `simulated` | A fresh simulation of your exact design | minutes to hours |
-| `OFF-GRID` | Not answerable from the grid; howbig says why | \- |
+| `OFF-GRID` | Not answerable from the grid; `howbig` says why | \- |
 
 Designs the grid doesn’t cover are flagged, not guessed:
 
@@ -104,10 +135,10 @@ power_for(p = 150, n = 1500, method = "JGL_BIC")
 #>         ?simulate_power).
 ```
 
-Rerunning with `simulate = TRUE` simulates that design, as do unequal
-group sizes (`n = c(600, 1400)`) and FDR targets other than 5%. Each
-simulation estimates its runtime before it starts and refuses to start
-runs longer than `max_minutes`.
+Rerunning with `simulate = TRUE` simulates that design, as do other
+unequal group sizes and FDR targets other than 5%. Each simulation
+estimates its runtime before it starts and refuses to start runs longer
+than `max_minutes`.
 
 ## Learn more
 
@@ -116,14 +147,7 @@ runs longer than `max_minutes`.
   walkthrough of power, sample size, and simulation.
 - [Methodology](https://mljaniczek.github.io/howbig/articles/methodology.html):
   how the networks are generated, how each method is scored, and how
-  howbig was validated.
-
-## Status
-
-howbig is experimental. The grid it ships with is **interim**: it was
-simulated on Barabási-Albert *tree* networks. It will be replaced by a
-grid on denser scale-free networks (mean degree ~3.8, matching Danaher
-et al. 2014), and numbers will shift when that lands.
+  `howbig` was validated.
 
 # Package index
 
@@ -131,6 +155,8 @@ et al. 2014), and numbers will shift when that lands.
 
 - [`howbig_coverage()`](https://mljaniczek.github.io/howbig/reference/howbig_coverage.md)
   : Coverage of the built-in grid
+- [`howbig_methods()`](https://mljaniczek.github.io/howbig/reference/howbig_methods.md)
+  : Methods available in howbig
 - [`n_for()`](https://mljaniczek.github.io/howbig/reference/n_for.md) :
   Required sample size for a target power
 - [`power_for()`](https://mljaniczek.github.io/howbig/reference/power_for.md)
