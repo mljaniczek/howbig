@@ -10,6 +10,7 @@ power_for(
   method,
   perturbation = "structural",
   fdr = .HOWBIG_FDR_TARGET,
+  scenario = "default",
   simulate = FALSE,
   ...
 )
@@ -18,26 +19,38 @@ power_for(
 \item{p}{Number of features.}
 
 \item{n}{Per-group sample size; a single number, or \code{c(n1, n2)} for
-unequal groups (always simulated).}
+unequal groups. Group 1 is the reference group (its network is intact;
+group 2 carries the change), so order matters.}
 
-\item{method}{Estimation method label. See \code{\link[=howbig_coverage]{howbig_coverage()}} for the
-available methods.}
+\item{method}{Estimation method label. See \code{\link[=howbig_methods]{howbig_methods()}}.}
 
 \item{perturbation}{Type of differential signal: \code{"structural"} (edges
-appear/disappear), \code{"magnitude"} (edge weights change), or \code{"both"}.}
+appear/disappear), \code{"magnitude"} (edge strengths change), or \code{"both"}.}
 
 \item{fdr}{Target false-discovery rate. The grid is scored at \code{0.05};
 other targets require simulation.}
 
+\item{scenario}{Assumption about the networks and data, for checking how
+sensitive an answer is to them. \code{"default"} (block-structured
+Barabasi-Albert tree networks, Gaussian data, empirical edge weights) is
+the main grid. The others are in the grid only at p = 100, n = 1000 with
+a structural change: \code{"scale_free"} (denser Barabasi-Albert blocks),
+\code{"erdos_renyi"} (random blocks), \code{"ar1_banded"} (non-modular banded
+network), \code{"censored_5"}, \code{"censored_25"}, \code{"censored_50"} (that share
+of each feature's values set to zero, as at a detection limit), and
+\code{"uniform_weights"}.}
+
 \item{simulate}{If \code{TRUE}, answer off-grid designs by on-demand
-simulation (slow). If \code{FALSE} (default), they are flagged instead.}
+simulation (slow; default scenario and simulatable methods only). If
+\code{FALSE} (default), they are flagged instead.}
 
 \item{...}{Passed to \code{\link[=simulate_power]{simulate_power()}} when simulating (e.g. \code{reps},
 \code{n_perm}, \code{cores}, \code{seed}).}
 }
 \value{
 An object of class \code{howbig_power}: a list with the sensitivity
-estimate and 80\% band, achieved FDR, AUPR, provenance, and any notes.
+estimate and 80\% band, achieved FDR, AUPR, the number of truly
+differential edges, provenance, and any notes.
 }
 \description{
 Estimates the power of a differential network analysis at a given sample
@@ -49,12 +62,14 @@ calibrated in every regime.
 \details{
 Answers come from a precomputed simulation grid where possible. Queries
 that hit a grid cell are exact; queries on a swept arm are interpolated.
-Anything else (other designs, unequal group sizes, FDR targets other than
-the grid's 0.05) is flagged \code{simulate_required}, and answered by an
-on-demand simulation when \code{simulate = TRUE} (see \code{\link[=simulate_power]{simulate_power()}}).
+Anything else (other designs, other unequal group sizes, FDR targets
+other than the grid's 0.05) is flagged \code{simulate_required}, and answered
+by an on-demand simulation when \code{simulate = TRUE} (see \code{\link[=simulate_power]{simulate_power()}}).
 }
 \examples{
 power_for(p = 250, n = 1000, method = "JGL_BIC")
-power_for(p = 250, n = 1500, method = "JGL_BIC")   # interpolated
-power_for(p = 150, n = 1500, method = "JGL_BIC")   # off-grid: flagged
+power_for(p = 250, n = 1500, method = "JGL_BIC")          # interpolated
+power_for(p = 100, n = c(500, 1500), method = "JGL_BIC")  # unequal groups
+power_for(p = 100, n = 1000, method = "JGL_BIC", scenario = "censored_25")
+power_for(p = 150, n = 1500, method = "JGL_BIC")          # off-grid: flagged
 }

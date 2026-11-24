@@ -24,11 +24,10 @@ simulate_power(
 \item{n}{Per-group sample size; a single number, or \code{c(n1, n2)} for
 unequal groups.}
 
-\item{method}{Estimation method label. See \code{\link[=howbig_coverage]{howbig_coverage()}} for the
-available methods.}
+\item{method}{Estimation method label. See \code{\link[=howbig_methods]{howbig_methods()}}.}
 
 \item{perturbation}{Type of differential signal: \code{"structural"} (edges
-appear/disappear), \code{"magnitude"} (edge weights change), or \code{"both"}.}
+appear/disappear), \code{"magnitude"} (edge strengths change), or \code{"both"}.}
 
 \item{fdr}{Target false-discovery rate for the differential calls.}
 

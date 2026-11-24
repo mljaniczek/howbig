@@ -8,7 +8,8 @@
 #   pip_diff : p x p posterior P(edge differs) -- multiGGM only
 #
 # Method packages are Suggests (several are GitHub-only); they are checked
-# once, up front, by .check_method_pkgs().
+# once, up front, by .check_method_pkgs(). Methods in the grid but not here
+# (mGHS, DiffNetFDR, ONDSA) are grid-only.
 
 .METHOD_PKGS <- list(
   JGL_BIC     = "JGL",
@@ -16,11 +17,14 @@
   SSJGL       = "spikeyglass",
   SSJGL_GGL   = "spikeyglass",
   multiGGM    = "multiGGM",
-  JRF         = "iJRFNet",
   InvCov      = character(0)
 )
 
 .check_method_pkgs <- function(method) {
+  if (!method %in% names(.METHOD_PKGS)) {
+    stop(method, " is available from the grid only; simulation supports: ",
+         paste(names(.METHOD_PKGS), collapse = ", "), ".", call. = FALSE)
+  }
   pkgs <- .METHOD_PKGS[[method]]
   missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
   if (length(missing)) {
@@ -42,7 +46,6 @@
     SSJGL       = .fit_ssjgl(dat, penalty = "fused"),
     SSJGL_GGL   = .fit_ssjgl(dat, penalty = "group"),
     multiGGM    = .fit_multiggm(dat),
-    JRF         = .fit_jrf(dat),
     InvCov      = .fit_invcov(dat),
     stop("No simulation wrapper for method: ", method, call. = FALSE)
   )
@@ -88,48 +91,44 @@
   list(score = .abs_diff(fit$thetalist[[length(v0s)]]))
 }
 
-# --- multiGGM (Bayesian SSVS; PIP-masked precision for ranking) ------------
+# --- multiGGM (Bayesian SSVS) ---------------------------------------------
+# Ranking score: |Theta1 - Theta2| of the posterior-mean precision, masked to
+# edges with posterior inclusion >= pip_mask_thr. Differential calls use the
+# grid's magnitude rule, P(|Theta1 - Theta2| > diff_delta | data), computed
+# from the saved precision draws pooled over chains (DiNA
+# summarize_diff_draws(), bayes_diff_delta = 0.1).
 
 .fit_multiggm <- function(dat, burnin = 5000L, nsave = 1000L, nchains = 2L,
-                          pip_mask_thr = 0.05) {
+                          pip_mask_thr = 0.05, diff_delta = 0.1) {
   fit <- multiGGM::multiggm_mcmc(
     data_list = dat, method = "ssvs", burnin = burnin, nsave = nsave,
     nchains = nchains, parallel = FALSE, seed = 123,
     hyper = list(v0 = 0.0004, v1 = 1, lambda = 1, a = 1, b = 4,
                  alpha = 2, beta = 5, w = 0.8, alpha_prop = 1, beta_prop = 1))
-  chains <- if (inherits(fit, "multiggm_fit_list")) seq_len(fit$nchains) else 1L
+  multi <- inherits(fit, "multiggm_fit_list")
+  chains <- if (multi) seq_len(fit$nchains) else 1L
   avg <- function(f) Reduce(`+`, lapply(chains, function(ch) f(fit, chain = ch))) /
     length(chains)
   pip <- avg(multiGGM::pip_edges)
-  pip_diff <- avg(multiGGM::pip_diff_edge)
   theta_ch <- lapply(chains, function(ch) multiGGM::posterior_precision(fit, chain = ch))
   theta <- lapply(1:2, function(k)
     Reduce(`+`, lapply(theta_ch, `[[`, k)) / length(chains))
   masked <- list(theta[[1]] * (pip[, , 1] >= pip_mask_thr),
                  theta[[2]] * (pip[, , 2] >= pip_mask_thr))
-  list(score = .abs_diff(masked), pip_diff = pip_diff)
-}
 
-# --- JRF (joint random forests; |importance1 - importance2|) --------------
-
-.fit_jrf <- function(dat, ntree = 1000L) {
+  # P(|D_ij| > diff_delta) from the precision draws (C_save: p x p x K x nsave)
   p <- ncol(dat[[1]])
-  genes <- paste0("V", seq_len(p))
-  X <- lapply(dat, function(d) {
-    z <- scale(d)
-    z[, !is.finite(colSums(z))] <- 0     # constant columns -> no signal
-    t(z)                                 # iJRF wants p x n
-  })
-  fit <- iJRFNet::iJRF(X = X, ntree = ntree, mtry = round(sqrt(p - 1)),
-                       genes.name = genes)
-  idx <- stats::setNames(seq_len(p), genes)
-  r <- idx[as.character(fit[, "gene1"])]
-  c <- idx[as.character(fit[, "gene2"])]
-  d <- abs(as.numeric(fit[, "importance1"]) - as.numeric(fit[, "importance2"]))
-  score <- matrix(0, p, p)
-  score[cbind(r, c)] <- d
-  score[cbind(c, r)] <- d
-  list(score = score)
+  ut <- which(upper.tri(diag(p)))
+  draws <- if (multi) fit$chains else list(fit)
+  exceed <- rowMeans(do.call(cbind, lapply(draws, function(ch) {
+    C <- ch$C_save
+    D <- matrix(C[, , 1, , drop = FALSE] - C[, , 2, , drop = FALSE],
+                p * p, dim(C)[4])[ut, , drop = FALSE]
+    abs(D) > diff_delta
+  })))
+  pip_diff <- matrix(0, p, p)
+  pip_diff[ut] <- exceed
+  list(score = .abs_diff(masked), pip_diff = pip_diff)
 }
 
 # --- InvCov (unregularized inverse / pseudoinverse baseline) --------------

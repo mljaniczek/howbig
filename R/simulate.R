@@ -43,7 +43,7 @@ simulate_power <- function(p, n, method, perturbation = "structural",
   stopifnot(length(p) == 1L, p >= 10, length(n) %in% 1:2, all(n >= 10),
             fdr > 0, fdr < 1, reps >= 2, n_perm >= 1)
   p <- as.integer(p)
-  n <- as.integer(rep_len(n, 2L))
+  n <- .normalize_n(n)
   method <- .normalize_method(method)
   perturbation <- .normalize_perturbation(perturbation)
   .check_method_pkgs(method)
@@ -117,11 +117,12 @@ simulate_power <- function(p, n, method, perturbation = "structural",
 
   res <- structure(list(
     method = method, p = p, n = n, perturbation = perturbation,
-    fdr_target = fdr, provenance = "simulated",
+    scenario = "default", fdr_target = fdr, provenance = "simulated",
     sensitivity = mn(sens), sensitivity_lo = q(sens, .10),
     sensitivity_hi = q(sens, .90),
     sensitivity_mcse = stats::sd(sens, na.rm = TRUE) / sqrt(sum(!is.na(sens))),
     achieved_fdr = mn(M[, "achieved_fdr"]), aupr = mn(M[, "aupr"]),
+    n_diff_edges = mn(M[, "n_diff"]), n_pairs = p * (p - 1) / 2,
     n_reps = sum(ok), n_perm = if (bayes) NA_integer_ else n_perm,
     runtime_sec = runtime, family = howbig_family,
     notes = if (sum(!ok)) sprintf("%d of %d replicate fits failed and were dropped.",
@@ -155,7 +156,8 @@ simulate_power <- function(p, n, method, perturbation = "structural",
   TP <- sum(truth & called); FP <- sum(!truth & called)
   c(sensitivity  = if (any(truth)) TP / sum(truth) else NA_real_,
     achieved_fdr = if (TP + FP > 0) FP / (TP + FP) else NA_real_,
-    aupr         = .aupr(truth, obs))
+    aupr         = .aupr(truth, obs),
+    n_diff       = sum(truth))
 }
 
 # Direct-posterior FDR: call the largest top-k set (by PIP) whose running

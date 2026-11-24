@@ -43,8 +43,10 @@ test_that("power_for(simulate = TRUE) answers unequal groups and other FDRs", {
 })
 
 test_that("parallel workers reproduce the serial result exactly", {
-  # workers are separate R processes that load the installed package
-  skip_if_not("howbig" %in% rownames(utils::installed.packages()))
+  # Workers are separate R processes that load the *installed* package, which
+  # is the version under test only inside R CMD check (interactively it may
+  # be a stale copy).
+  skip_if(Sys.getenv("_R_CHECK_PACKAGE_NAME_") == "", "runs under R CMD check")
   skip_on_cran()
   a <- simulate_power(60, 300, "InvCov", reps = 4, n_perm = 4, seed = 21,
                       cores = 1, verbose = FALSE)
@@ -56,7 +58,7 @@ test_that("parallel workers reproduce the serial result exactly", {
 })
 
 test_that("runtime guard refuses designs that would take too long", {
-  skip_if_not_installed("iJRFNet")
-  expect_error(simulate_power(250, 1000, "JRF", max_minutes = 60),
+  skip_if_not_installed("multiGGM")
+  expect_error(simulate_power(250, 1000, "multiGGM", max_minutes = 60),
                "exceeds max_minutes")
 })

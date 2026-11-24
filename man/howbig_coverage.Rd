@@ -4,16 +4,24 @@
 \alias{howbig_coverage}
 \title{Coverage of the built-in grid}
 \usage{
-howbig_coverage(method = NULL)
+howbig_coverage(method = NULL, scenario = NULL)
 }
 \arguments{
 \item{method}{Optional method label to filter to.}
+
+\item{scenario}{Optional scenario to filter to (see \code{\link[=power_for]{power_for()}}).}
 }
 \value{
-A data frame of grid cells with mean sensitivity, achieved FDR
-and AUPR, and the replicate count behind each cell.
+A data frame of grid cells with mean sensitivity, achieved FDR,
+AUPR, the mean number of truly differential edges, the number of
+feature pairs, and the replicate count behind each cell.
 }
 \description{
-Returns the precomputed cells \code{howbig} can answer directly (before any
-interpolation or simulation), one row per (method, p, n, perturbation).
+Returns the precomputed cells \code{howbig} can answer directly, before any
+interpolation or simulation: one row per method, scenario, perturbation,
+number of features, and pair of group sizes.
+}
+\examples{
+head(howbig_coverage("JGL_BIC"))
+howbig_coverage("JGL_BIC", scenario = "erdos_renyi")
 }

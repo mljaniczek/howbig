@@ -30,7 +30,6 @@ Suggests:
     JGL,
     spikeyglass,
     multiGGM,
-    iJRFNet,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
@@ -38,6 +37,5 @@ VignetteBuilder: knitr
 Remotes:
     patrickjdanaher/JGL-package,
     mljaniczek/spikeyglass,
-    mljaniczek/multiGGMr,
-    petraf01/iJRF
+    mljaniczek/multiGGMr
 Config/testthat/edition: 3

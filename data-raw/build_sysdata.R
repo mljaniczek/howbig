@@ -1,72 +1,126 @@
 #!/usr/bin/env Rscript
-# Preprocess results/simulation_results.RData into a compact internal
-# lookup table shipped as R/sysdata.rda (object: howbig_grid).
+# Build the internal lookup tables shipped in R/sysdata.rda from the DiNA
+# production results. Run from the package root:
+#   Rscript data-raw/build_sysdata.R
 #
-# One row per (method, p, n, perturbation) cell with mean / sd / q10 / q90
-# and rep count for the three metrics howbig serves.
+# Objects written:
+#   howbig_grid    one row per (method, scenario, perturbation, p, n1, n2) cell
+#   howbig_method_info method metadata (inference route, whether simulatable)
+#   howbig_family  data-generating family the simulator uses (matches grid)
+#   howbig_weights empirical edge-weight distribution (mxDist.csv)
+#   howbig_runtime per-method log-linear model of fit time, for ETAs
 
-load("results/simulation_results.RData")   # -> results
-d <- results
+SOURCE <- "results/simulation_results_20261117_112116.rds"
+d <- readRDS(SOURCE)
+d <- d[d$status == "success", ]
 
-parse_p <- function(s) suppressWarnings(as.integer(sub(".*p(\\d+)n.*", "\\1", s)))
-d$p <- parse_p(d$setting)
+# v1 methods (agreed Nov 2026): six core methods plus three grid-only ones.
+# Excluded: JRF (sensitivity scored in under half the cells, breaks under
+# unequal groups), DTRACE/PNJGL (no FDR-controlled calls, so no power),
+# JGL_CV*/multiGGM_long (run in only 2-3 settings).
+howbig_method_info <- data.frame(
+  method = c("JGL_BIC", "JGL_BIC_GGL", "SSJGL", "SSJGL_GGL", "multiGGM",
+             "InvCov", "mGHS", "DiffNetFDR", "ONDSA"),
+  description = c(
+    "Joint graphical lasso, fused penalty, BIC-tuned",
+    "Joint graphical lasso, group penalty, BIC-tuned",
+    "Spike-and-slab joint graphical lasso, fused penalty",
+    "Spike-and-slab joint graphical lasso, group penalty",
+    "Bayesian joint GGM (stochastic search variable selection)",
+    "Unregularized inverse covariance (baseline)",
+    "Bayesian multiple graphical horseshoe",
+    "Partial-correlation difference test (DiffNetFDR)",
+    "Debiased (FastGGM-based) differential network test"),
+  inference = c(rep("permutation null + BH", 4), "posterior FDR",
+                "permutation null + BH", "posterior FDR",
+                "built-in FDR procedure", "built-in FDR procedure"),
+  simulate = c(rep(TRUE, 6), rep(FALSE, 3)),
+  stringsAsFactors = FALSE
+)
+d <- d[d$method %in% howbig_method_info$method, ]
 
-# keep only the SF- BA-family sweep/anchor cells (drop paper-replication
-# generators Danaher/Shaddox which have no parseable p and a different DGP)
-d <- d[!is.na(d$p), ]
+# --- Parse setting labels into design + scenario ---------------------------
+# Labels look like <family><perturbation>p<P>n<N>[-<variant>], e.g.
+# "SF-p100n1000", "SFCp100n1000", "SF2-p100n1000", "SF-p100n1000-zi25".
+# NOTE: the results' `n` column is the AVERAGE group size. Unequal-group
+# settings must take n1/n2 from the DiNA registry
+# (dina_simulation/00_helper_functions.R, get_setting_params()), otherwise
+# they silently merge into the balanced cell.
+UNEQUAL <- list(unbal3 = c(500L, 1500L))   # "SF-p100n1000-unbal3"
+VARIANT_SCENARIO <- c(zi05 = "censored_5", zi25 = "censored_25",
+                      zi50 = "censored_50", uniform = "uniform_weights")
+FAMILY_SCENARIO <- c(SF2 = "scale_free", ER = "erdos_renyi",
+                     AR1 = "ar1_banded")
+PERT <- c("-" = "structural", "+" = "both", "C" = "magnitude", "0" = "null")
 
-# user-facing perturbation label <- grid perturbation
-# structural = Deletion (A); magnitude = Activation (C); both = Deletion + Activation (B)
-pert_map <- c("Deletion" = "structural",
-              "Activation" = "magnitude",
-              "Deletion + Activation" = "both")
-d$pert <- pert_map[d$perturbation]
+rx <- "^(SF2|SF|ER|AR1)([-+C0])p([0-9]+)n([0-9]+)(-(.+))?$"
+settings <- unique(d$setting)
+bad <- settings[!grepl(rx, settings)]
+if (length(bad)) stop("Unparsed setting labels: ", paste(bad, collapse = ", "))
+
+parsed <- do.call(rbind, lapply(settings, function(s) {
+  m <- regmatches(s, regexec(rx, s))[[1]]
+  family <- m[2]; variant <- m[7]; n <- as.integer(m[5])
+  scenario <- if (family != "SF") FAMILY_SCENARIO[[family]]
+              else if (nzchar(variant) && variant %in% names(VARIANT_SCENARIO))
+                VARIANT_SCENARIO[[variant]]
+              else "default"
+  if (nzchar(variant) && !variant %in% c(names(VARIANT_SCENARIO), names(UNEQUAL)))
+    stop("Unknown setting variant: ", s)
+  nn <- if (nzchar(variant) && variant %in% names(UNEQUAL)) UNEQUAL[[variant]]
+        else c(n, n)
+  data.frame(setting = s, scenario = scenario, perturbation = PERT[[m[3]]],
+             p = as.integer(m[4]), n1 = nn[1], n2 = nn[2],
+             stringsAsFactors = FALSE)
+}))
+# The global-null setting has no true differences: no power to report.
+parsed <- parsed[parsed$perturbation != "null", ]
+d <- merge(d[, setdiff(names(d), c("p", "perturbation"))], parsed, by = "setting")
 
 metrics <- c(sensitivity = "diff_TPR_inference",
              achieved_fdr = "diff_FDR_inference",
-             aupr         = "diff_AUPR")
+             aupr = "diff_AUPR")
+keys <- c("method", "scenario", "perturbation", "p", "n1", "n2")
+split_idx <- split(seq_len(nrow(d)), interaction(d[keys], drop = TRUE, sep = "|"))
 
-key <- interaction(d$method, d$p, d$n, d$pert, drop = TRUE, sep = "\u0001")
-split_idx <- split(seq_len(nrow(d)), key)
-
-rows <- lapply(split_idx, function(ix) {
+howbig_grid <- do.call(rbind, lapply(split_idx, function(ix) {
   sub <- d[ix, ]
-  out <- data.frame(method = sub$method[1], p = sub$p[1], n = sub$n[1],
-                    perturbation = sub$pert[1], stringsAsFactors = FALSE)
+  out <- sub[1, keys]
   for (mn in names(metrics)) {
     v <- sub[[metrics[mn]]]
     v <- v[is.finite(v)]
     out[[paste0(mn, "_mean")]] <- if (length(v)) mean(v) else NA_real_
-    out[[paste0(mn, "_sd")]]   <- if (length(v)) sd(v)   else NA_real_
-    out[[paste0(mn, "_q10")]]  <- if (length(v)) as.numeric(quantile(v, .10)) else NA_real_
-    out[[paste0(mn, "_q90")]]  <- if (length(v)) as.numeric(quantile(v, .90)) else NA_real_
+    out[[paste0(mn, "_sd")]]   <- if (length(v) > 1) sd(v) else NA_real_
+    out[[paste0(mn, "_q10")]]  <- if (length(v)) unname(quantile(v, .10)) else NA_real_
+    out[[paste0(mn, "_q90")]]  <- if (length(v)) unname(quantile(v, .90)) else NA_real_
   }
+  out$n_diff_edges <- mean(sub$diff_edges_true, na.rm = TRUE)
+  out$n_pairs <- sub$p[1] * (sub$p[1] - 1) / 2
   out$n_reps <- nrow(sub)
   out
-})
-howbig_grid <- do.call(rbind, rows)
+}))
 rownames(howbig_grid) <- NULL
-howbig_grid <- howbig_grid[order(howbig_grid$method, howbig_grid$perturbation,
-                                 howbig_grid$p, howbig_grid$n), ]
+howbig_grid <- howbig_grid[order(howbig_grid$method, howbig_grid$scenario,
+                                 howbig_grid$perturbation, howbig_grid$p,
+                                 howbig_grid$n1, howbig_grid$n2), ]
 
-# provenance metadata travels with the object
 attr(howbig_grid, "howbig_meta") <- list(
-  source_family = "SF- (BA-tree, m_pa=1) — INTERIM; ship target is SF2-",
+  source = basename(SOURCE),
+  source_family = "SF1: Barabasi-Albert tree blocks (m_pa = 1)",
   fdr_target = 0.05,
   metric_cols = as.list(metrics),
   built = as.character(Sys.Date())
 )
 
-# Data-generating family the grid was simulated under. The on-demand
-# simulator reads this so simulated answers describe the same networks as
-# grid answers. When the SF2- grid replaces this one, set m_pa = 2 here.
+# Data-generating family for the on-demand simulator; must match the grid's
+# "default" scenario so simulated and grid answers describe the same networks.
 howbig_family <- list(
-  topology     = "scale_free",
-  m_pa         = 1L,        # SF- = BA tree; SF2- = 2
-  p_block      = 25L,
-  wt_method    = "empirical",
-  scale_factor = 1.5,
-  diff_threshold = 0.01     # |Theta_g1 - Theta_g2| > this => true differential
+  topology       = "scale_free",
+  m_pa           = 1L,        # SF1 = BA tree
+  p_block        = 25L,
+  wt_method      = "empirical",
+  scale_factor   = 1.5,
+  diff_threshold = 0.01       # |Theta_g1 - Theta_g2| > this => true differential
 )
 
 # Empirical partial-correlation weight distribution (histogram: mids,
@@ -74,9 +128,9 @@ howbig_family <- list(
 howbig_weights <- read.csv("data-raw/mxDist.csv")
 
 # Per-method runtime model for simulation pre-flight estimates:
-# log(seconds per fit) ~ log(p) + log(n), fit on the production timings.
-# InvCov is effectively instant, so it gets a flat floor.
-rt <- d[is.finite(d$runtime_sec) & d$runtime_sec > 0, ]
+# log(seconds per fit) ~ log(p) + log(n), on default-scenario timings.
+rt <- d[d$scenario == "default" & is.finite(d$runtime_sec) & d$runtime_sec > 0, ]
+rt$n <- (rt$n1 + rt$n2) / 2
 howbig_runtime <- do.call(rbind, lapply(split(rt, rt$method), function(s) {
   cf <- if (length(unique(s$p)) > 1 && length(unique(s$n)) > 1) {
     coef(lm(log(runtime_sec) ~ log(p) + log(n), data = s))
@@ -88,15 +142,10 @@ howbig_runtime <- do.call(rbind, lapply(split(rt, rt$method), function(s) {
 }))
 
 dir.create("R", showWarnings = FALSE)
-save(howbig_grid, howbig_family, howbig_weights, howbig_runtime,
+save(howbig_grid, howbig_method_info, howbig_family, howbig_weights, howbig_runtime,
      file = "R/sysdata.rda", compress = "xz")
 
 cat("Wrote R/sysdata.rda:", nrow(howbig_grid), "cells,",
-    length(unique(howbig_grid$method)), "methods\n")
-cat("perturbations:", paste(unique(howbig_grid$perturbation), collapse=", "), "\n")
-cat("file size:", file.info("R/sysdata.rda")$size, "bytes\n")
-cat("\nsample rows (JGL_BIC, structural):\n")
-print(head(howbig_grid[howbig_grid$method=="JGL_BIC" &
-                       howbig_grid$perturbation=="structural",
-                       c("p","n","sensitivity_mean","achieved_fdr_mean","aupr_mean","n_reps")], 12),
-      row.names = FALSE, digits = 3)
+    length(unique(howbig_grid$method)), "methods,",
+    file.info("R/sysdata.rda")$size, "bytes\n")
+print(table(howbig_grid$scenario, howbig_grid$perturbation))

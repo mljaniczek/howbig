@@ -3,6 +3,7 @@
 S3method(print,howbig_n)
 S3method(print,howbig_power)
 export(howbig_coverage)
+export(howbig_methods)
 export(n_for)
 export(power_for)
 export(simulate_power)
